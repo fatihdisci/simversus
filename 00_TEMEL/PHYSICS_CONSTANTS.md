@@ -13,14 +13,14 @@
 | `arenaRadius` | ekran genişliğinin %42'si | Sim-uzayında sabit 160 pt, render'da ölçeklenir |
 | `arenaRotationSpeed` | 0.65 rad/s | Arenanın (ve gap'in) sabit dönüş hızı |
 | `arenaWallRestitution` | 0.9 | Duvar sekme esnekliği |
-| `gapWidth` | 0.18 rad | Kale boşluğunun açısal genişliği |
+| `gapWidth` | 0.28 rad | Kale boşluğunun açısal genişliği |
 | `exitMargin` | 14 pt | Topun "çıkmış" sayılması için arenaRadius'u aşması gereken ek mesafe |
 
 ## Toplar (dairesel, takım renginde, badge sembollü)
 
 | Sabit | Değer | Açıklama |
 |---|---|---|
-| `ballRadius` | 30 pt | Dairesel top yarıçapı — üzerinde takımın badge sembolü |
+| `ballRadius` | 28 pt | Dairesel top yarıçapı — üzerinde takımın badge sembolü |
 | `ballToBallRestitution` | 0.85 | İki top çarpıştığında sekme |
 | `ballToWallRestitution` | 0.9 | |
 | `ballLinearDamping` | 0.06 | Düşük damping = canlı hareket |

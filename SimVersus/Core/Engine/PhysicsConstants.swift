@@ -24,14 +24,14 @@ enum PhysicsConstants {
     /// Wall bounce elasticity.
     static let arenaWallRestitution: CGFloat = 0.9
     /// Angular width of the single goal gap on the arena ring (rad).
-    static let gapWidth: CGFloat = 0.26
+    static let gapWidth: CGFloat = 0.28
     /// Extra distance beyond arenaRadius a ball centre must pass to be "out".
     static let exitMargin: CGFloat = 14
 
     // MARK: Balls (each is a team's badge — no separate ball asset)
 
     /// Badge-sized ball radius. Large because "ball" = team identity.
-    static let ballRadius: CGFloat = 30
+    static let ballRadius: CGFloat = 28
     /// Restitution when two balls collide.
     static let ballToBallRestitution: CGFloat = 0.85
     /// Restitution when a ball bounces off the arena wall.
