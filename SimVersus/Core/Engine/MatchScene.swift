@@ -325,72 +325,8 @@ final class MatchScene: SKScene {
         core.lineCap = .round
         arenaNode.addChild(core)
 
-        // ── GOAL MOUTH (Mac-oto inspired) ──
-
-        let goalR: CGFloat = r + 4  // slightly outside wall
-
-        // Goal threshold line across the gap opening.
-        let threshold = CGMutablePath()
-        let t1 = CGPoint(x: cos(-half) * goalR, y: sin(-half) * goalR)
-        let t2 = CGPoint(x: cos(half) * goalR, y: sin(half) * goalR)
-        threshold.move(to: t1)
-        threshold.addLine(to: t2)
-        let thresholdNode = SKShapeNode(path: threshold)
-        thresholdNode.strokeColor = UIColor.white
-        thresholdNode.lineWidth = 3
-        thresholdNode.lineCap = .round
-        arenaNode.addChild(thresholdNode)
-
-        // Goalposts — thick bright posts at each edge, angled outward.
-        for side: CGFloat in [-1, 1] {
-            let a = side * half
-            let inner = CGPoint(x: cos(a) * goalR, y: sin(a) * goalR)
-            let outer = CGPoint(x: cos(a + side * 0.35) * (goalR + 28),
-                                y: sin(a + side * 0.35) * (goalR + 28))
-            let post = CGMutablePath()
-            post.move(to: inner)
-            post.addLine(to: outer)
-            let postNode = SKShapeNode(path: post)
-            postNode.strokeColor = UIColor(red: 1, green: 0.84, blue: 0.1, alpha: 1) // gold
-            postNode.lineWidth = 5
-            postNode.lineCap = .round
-            arenaNode.addChild(postNode)
-
-            // Bright white tip at post end.
-            let tip = SKShapeNode(circleOfRadius: 4)
-            tip.fillColor = .white
-            tip.strokeColor = .clear
-            tip.position = outer
-            arenaNode.addChild(tip)
-        }
-
-        // Net — horizontal lines extending outward from gap.
-        for i in 1...4 {
-            let ext = goalR + CGFloat(i) * 11
-            let n1 = CGPoint(x: cos(-half) * ext, y: sin(-half) * ext)
-            let n2 = CGPoint(x: cos(half) * ext, y: sin(half) * ext)
-            let netLine = CGMutablePath()
-            netLine.move(to: n1)
-            netLine.addLine(to: n2)
-            let netNode = SKShapeNode(path: netLine)
-            netNode.strokeColor = UIColor.white.withAlphaComponent(CGFloat(0.22 - Double(i) * 0.04))
-            netNode.lineWidth = 1.5
-            arenaNode.addChild(netNode)
-        }
-
-        // Vertical net lines connecting the horizontal ones.
-        for j in [-1, 1] {
-            let a = CGFloat(j) * half
-            let path = CGMutablePath()
-            let inner = CGPoint(x: cos(a) * goalR, y: sin(a) * goalR)
-            let outer = CGPoint(x: cos(a) * (goalR + 44), y: sin(a) * (goalR + 44))
-            path.move(to: inner)
-            path.addLine(to: outer)
-            let vNode = SKShapeNode(path: path)
-            vNode.strokeColor = UIColor.white.withAlphaComponent(0.18)
-            vNode.lineWidth = 2
-            arenaNode.addChild(vNode)
-        }
+        // ── GOAL (net box seated in the rotating wall gap) ──
+        buildGoal(radius: r, half: half)
 
         // Centre marks so rotation is visible.
         let line = SKShapeNode(rectOf: CGSize(width: r * 2, height: wallStrokeWidth))
@@ -403,6 +339,61 @@ final class MatchScene: SKScene {
         ring.lineWidth = wallStrokeWidth
         ring.fillColor = .clear
         arenaNode.addChild(ring)
+    }
+
+    /// Builds a rectangular goal (frame + net mesh) seated in the wall gap.
+    /// Gap is centred on the +X axis in arena-local space; `arenaNode` (this goal
+    /// included) is rotated to the live gap angle each frame, so the goal always
+    /// stays glued to the opening. The frame is an outward "⊐" bracket whose open
+    /// mouth faces the arena interior — the direction a ball travels to score.
+    private func buildGoal(radius r: CGFloat, half: CGFloat) {
+        let depth: CGFloat = 34                 // how far the goal box extends past the wall
+        let frontX = cos(half) * r              // both gap edges share this x (mouth is a chord)
+        let topY = sin(half) * r
+        let botY = -topY
+        let backX = frontX + depth
+
+        // Net mesh — subtle white crosshatch filling the box (behind the frame).
+        let mesh = CGMutablePath()
+        let columns = 3                         // lines parallel to the back bar
+        for i in 1...columns {
+            let x = frontX + depth * CGFloat(i) / CGFloat(columns + 1)
+            mesh.move(to: CGPoint(x: x, y: botY))
+            mesh.addLine(to: CGPoint(x: x, y: topY))
+        }
+        let rows = 3                            // lines parallel to the posts
+        for i in 1...rows {
+            let y = botY + (topY - botY) * CGFloat(i) / CGFloat(rows + 1)
+            mesh.move(to: CGPoint(x: frontX, y: y))
+            mesh.addLine(to: CGPoint(x: backX, y: y))
+        }
+        let meshNode = SKShapeNode(path: mesh)
+        meshNode.strokeColor = UIColor.white.withAlphaComponent(0.16)
+        meshNode.lineWidth = 1
+        arenaNode.addChild(meshNode)
+
+        // Frame path — top post, back bar, bottom post (mouth stays open).
+        let frame = CGMutablePath()
+        frame.move(to: CGPoint(x: frontX, y: topY))
+        frame.addLine(to: CGPoint(x: backX, y: topY))
+        frame.addLine(to: CGPoint(x: backX, y: botY))
+        frame.addLine(to: CGPoint(x: frontX, y: botY))
+
+        // Soft white glow under the frame (neon-consistent with the arena wall).
+        let glow = SKShapeNode(path: frame)
+        glow.strokeColor = UIColor.white.withAlphaComponent(0.22)
+        glow.lineWidth = 8
+        glow.lineCap = .round
+        glow.lineJoin = .round
+        arenaNode.addChild(glow)
+
+        // Bright solid frame.
+        let frameNode = SKShapeNode(path: frame)
+        frameNode.strokeColor = .white
+        frameNode.lineWidth = 3.5
+        frameNode.lineCap = .round
+        frameNode.lineJoin = .round
+        arenaNode.addChild(frameNode)
     }
 
     private func wallArcPath(radius: CGFloat, half: CGFloat) -> CGPath {
