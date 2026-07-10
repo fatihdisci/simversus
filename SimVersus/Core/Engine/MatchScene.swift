@@ -24,17 +24,28 @@ struct MatchHUDSnapshot: Equatable {
 
 // MARK: - Particle types
 
+// Particles are SKSpriteNodes sharing two cached textures (circle/square) so
+// SpriteKit can batch them into a single draw pass — per-node SKShapeNodes each
+// cost their own draw and allocate on every spawn, which caused visible hitches
+// on collision/goal bursts. Nodes are recycled through `particlePool`.
+
 private struct CollisionParticle {
-    var node: SKShapeNode
+    var node: SKSpriteNode
     var velocity: CGPoint
     var lifetime: TimeInterval
     var age: TimeInterval = 0
 }
 
 private struct TrailParticle {
-    var node: SKShapeNode
+    var node: SKSpriteNode
     var lifetime: TimeInterval
     var age: TimeInterval = 0
+}
+
+private struct ConfettiParticle {
+    var node: SKSpriteNode
+    var vx: CGFloat
+    var vr: CGFloat
 }
 
 final class MatchScene: SKScene {
@@ -55,10 +66,13 @@ final class MatchScene: SKScene {
     private var homeShadowNode = SKShapeNode()
     private var awayShadowNode = SKShapeNode()
 
-    // Particle pools.
+    // Live particles + shared sprite pool (recycled nodes, capped size).
     private var collisionParticles: [CollisionParticle] = []
     private var trailParticles: [TrailParticle] = []
-    private var confettiNodes: [SKShapeNode] = []
+    private var confettiParticles: [ConfettiParticle] = []
+    private var particlePool: [SKSpriteNode] = []
+    private let particlePoolLimit = 256
+    private let maxLiveCollisionParticles = 150
 
     private var lastUpdateTime: TimeInterval = 0
     private var accumulator: TimeInterval = 0
@@ -151,6 +165,55 @@ final class MatchScene: SKScene {
         node.size = size
         node.zPosition = 10
         return node
+    }
+
+    // MARK: Particle textures & pool
+
+    /// Shared white circle texture — tinted per particle via `color`/`colorBlendFactor`.
+    private static let circleParticleTexture: SKTexture = {
+        let d: CGFloat = 16
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: d, height: d))
+        let image = renderer.image { ctx in
+            UIColor.white.setFill()
+            ctx.cgContext.fillEllipse(in: CGRect(x: 0, y: 0, width: d, height: d))
+        }
+        return SKTexture(image: image)
+    }()
+
+    /// Shared white square texture for confetti rectangles.
+    private static let squareParticleTexture: SKTexture = {
+        let d: CGFloat = 8
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: d, height: d))
+        let image = renderer.image { ctx in
+            UIColor.white.setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: d, height: d))
+        }
+        return SKTexture(image: image)
+    }()
+
+    private func obtainParticleSprite(texture: SKTexture, size: CGSize, color: UIColor) -> SKSpriteNode {
+        let node: SKSpriteNode
+        if let recycled = particlePool.popLast() {
+            node = recycled
+            node.texture = texture
+        } else {
+            node = SKSpriteNode(texture: texture)
+        }
+        node.size = size
+        node.xScale = 1
+        node.yScale = 1
+        node.zRotation = 0
+        node.alpha = 1
+        node.color = color
+        node.colorBlendFactor = 1
+        return node
+    }
+
+    private func recycleParticleSprite(_ node: SKSpriteNode) {
+        node.removeFromParent()
+        if particlePool.count < particlePoolLimit {
+            particlePool.append(node)
+        }
     }
 
     // MARK: Badge symbol paths (static)
@@ -358,18 +421,23 @@ final class MatchScene: SKScene {
 
     override func update(_ currentTime: TimeInterval) {
         if lastUpdateTime == 0 { lastUpdateTime = currentTime }
-        let delta = min(currentTime - lastUpdateTime, 0.25)
+        // Cap delta hard: after a hitch/backgrounding the sim clock slips slightly
+        // instead of bursting many catch-up steps in one frame (chained stutter).
+        let delta = min(currentTime - lastUpdateTime, 1.0 / 20.0)
         lastUpdateTime = currentTime
 
         accumulator += delta * TimeInterval(PhysicsConstants.maxSimSpeed)
         var stepsThisFrame = 0
-        while accumulator >= PhysicsConstants.fixedTimeStep, stepsThisFrame < 20, !simulation.isFinished {
+        while accumulator >= PhysicsConstants.fixedTimeStep, stepsThisFrame < 4, !simulation.isFinished {
             simulation.step()
             // Spawn collision particles from events generated this step.
             spawnCollisionEffects()
             accumulator -= PhysicsConstants.fixedTimeStep
             stepsThisFrame += 1
         }
+        // Drop leftover debt beyond one frame's budget so a sustained slow
+        // stretch can never build an ever-growing catch-up queue.
+        accumulator = min(accumulator, PhysicsConstants.fixedTimeStep * 4)
 
         // Visual effects update (frame-rate dependent, not sim-step).
         updateParticles(dt: CGFloat(delta))
@@ -423,22 +491,28 @@ final class MatchScene: SKScene {
 
     private func spawnCollisionEffects() {
         let events = simulation.pendingCollisionEvents
+        // The simulation clears its event list at the start of every playing
+        // step; a shrunken list means a new step began, so restart the cursor.
+        if events.count < processedCollisionCount { processedCollisionCount = 0 }
         guard events.count > processedCollisionCount else { return }
         let newEvents = events.suffix(from: processedCollisionCount)
         processedCollisionCount = events.count
 
         for event in newEvents {
-            let count = event.isBallBall ? 30 : 15
+            let desired = event.isBallBall ? 30 : 15
+            // Budget: never let simultaneous bursts pile up unbounded node counts.
+            let count = min(desired, maxLiveCollisionParticles - collisionParticles.count)
+            guard count > 0 else { continue }
             let colors: [UIColor] = event.isBallBall
                 ? [.white, UIColor(red: 1, green: 0.9, blue: 0.4, alpha: 1), UIColor(red: 0, green: 0.9, blue: 1, alpha: 1), UIColor(red: 1, green: 0.4, blue: 0.4, alpha: 1)]
                 : [.white, UIColor(red: 0, green: 0.7, blue: 1, alpha: 1), UIColor(red: 0.6, green: 0.9, blue: 1, alpha: 1)]
             for _ in 0..<count {
                 let angle = CGFloat.random(in: 0..<2 * .pi)
                 let speed = CGFloat.random(in: 80...400) * event.intensity
-                let size = CGFloat.random(in: 2...6) * event.intensity
-                let node = SKShapeNode(circleOfRadius: max(1, size))
-                node.fillColor = colors.randomElement() ?? .white
-                node.strokeColor = .clear
+                let radius = max(1, CGFloat.random(in: 2...6) * event.intensity)
+                let node = obtainParticleSprite(texture: Self.circleParticleTexture,
+                                                size: CGSize(width: radius * 2, height: radius * 2),
+                                                color: colors.randomElement() ?? .white)
                 node.position = event.position
                 node.zPosition = 20
                 shakeNode.addChild(node)
@@ -452,11 +526,15 @@ final class MatchScene: SKScene {
     }
 
     private func updateParticles(dt: CGFloat) {
+        // All three arrays are compacted in place (write-index) so a frame never
+        // allocates a fresh array, and expired nodes go back to the pool.
+
         // Collision particles.
-        var aliveCollision: [CollisionParticle] = []
-        for var p in collisionParticles {
+        var write = 0
+        for read in 0..<collisionParticles.count {
+            var p = collisionParticles[read]
             p.age += TimeInterval(dt)
-            if p.age >= p.lifetime { p.node.removeFromParent(); continue }
+            if p.age >= p.lifetime { recycleParticleSprite(p.node); continue }
             p.velocity.y -= 400 * dt // gravity-like
             p.velocity.x *= 0.94
             p.velocity.y *= 0.94
@@ -465,31 +543,38 @@ final class MatchScene: SKScene {
             let progress = CGFloat(p.age / p.lifetime)
             p.node.alpha = 1 - progress
             p.node.setScale(1 - progress * 0.5)
-            aliveCollision.append(p)
+            collisionParticles[write] = p
+            write += 1
         }
-        collisionParticles = aliveCollision
+        collisionParticles.removeLast(collisionParticles.count - write)
 
         // Trail particles.
-        var aliveTrail: [TrailParticle] = []
-        for var p in trailParticles {
+        write = 0
+        for read in 0..<trailParticles.count {
+            var p = trailParticles[read]
             p.age += TimeInterval(dt)
-            if p.age >= p.lifetime { p.node.removeFromParent(); continue }
+            if p.age >= p.lifetime { recycleParticleSprite(p.node); continue }
             let progress = CGFloat(p.age / p.lifetime)
             p.node.alpha = 0.18 * (1 - progress)
             p.node.setScale(1 + progress * 0.3)
-            aliveTrail.append(p)
+            trailParticles[write] = p
+            write += 1
         }
-        trailParticles = aliveTrail
+        trailParticles.removeLast(trailParticles.count - write)
 
         // Confetti (gravity + rotate).
-        for node in confettiNodes {
-            node.position.y -= 300 * dt
-            node.position.x += (node.userData?["vx"] as? CGFloat ?? 0) * dt
-            node.zRotation += (node.userData?["vr"] as? CGFloat ?? 0) * dt
-            node.alpha -= 0.5 * dt
+        write = 0
+        for read in 0..<confettiParticles.count {
+            let p = confettiParticles[read]
+            p.node.position.y -= 300 * dt
+            p.node.position.x += p.vx * dt
+            p.node.zRotation += p.vr * dt
+            p.node.alpha -= 0.5 * dt
+            if p.node.alpha <= 0 { recycleParticleSprite(p.node); continue }
+            confettiParticles[write] = p
+            write += 1
         }
-        confettiNodes.removeAll { $0.alpha <= 0 }
-        for dead in confettiNodes where dead.alpha <= 0 { dead.removeFromParent() }
+        confettiParticles.removeLast(confettiParticles.count - write)
     }
 
     // MARK: Ball trail (Mac-oto inspired — subtle white dust)
@@ -503,9 +588,10 @@ final class MatchScene: SKScene {
         let tx = ball.position.x - nx * PhysicsConstants.ballRadius * 0.7
         let ty = ball.position.y - ny * PhysicsConstants.ballRadius * 0.7
         let size = CGFloat.random(in: 1.5...4)
-        let node = SKShapeNode(circleOfRadius: size)
-        node.fillColor = UIColor.white.withAlphaComponent(0.25)
-        node.strokeColor = .clear
+        let node = obtainParticleSprite(texture: Self.circleParticleTexture,
+                                        size: CGSize(width: size * 2, height: size * 2),
+                                        color: .white)
+        node.alpha = 0.25
         node.position = CGPoint(x: tx + CGFloat.random(in: -3...3), y: ty + CGFloat.random(in: -3...3))
         node.zPosition = 5
         shakeNode.addChild(node)
@@ -540,23 +626,25 @@ final class MatchScene: SKScene {
                                   UIColor(red: 0.5, green: 0.9, blue: 0.6, alpha: 1)]
         for _ in 0..<60 {
             let size = CGFloat.random(in: 4...10)
-            let shape: SKShapeNode
+            let node: SKSpriteNode
             if Bool.random() {
-                shape = SKShapeNode(rectOf: CGSize(width: size * 3, height: size))
+                node = obtainParticleSprite(texture: Self.squareParticleTexture,
+                                            size: CGSize(width: size * 3, height: size),
+                                            color: colors.randomElement() ?? .white)
             } else {
-                shape = SKShapeNode(circleOfRadius: size)
+                node = obtainParticleSprite(texture: Self.circleParticleTexture,
+                                            size: CGSize(width: size * 2, height: size * 2),
+                                            color: colors.randomElement() ?? .white)
             }
-            shape.fillColor = colors.randomElement() ?? .white
-            shape.strokeColor = .clear
-            shape.position = CGPoint(x: CGFloat.random(in: -120...120), y: CGFloat.random(in: 200...350))
-            shape.zPosition = 30
-            shape.zRotation = CGFloat.random(in: 0..<2 * .pi)
-            shape.userData = [
-                "vx": CGFloat.random(in: -200...200),
-                "vr": CGFloat.random(in: -6...6)
-            ] as NSMutableDictionary
-            shakeNode.addChild(shape)
-            confettiNodes.append(shape)
+            node.position = CGPoint(x: CGFloat.random(in: -120...120), y: CGFloat.random(in: 200...350))
+            node.zPosition = 30
+            node.zRotation = CGFloat.random(in: 0..<2 * .pi)
+            shakeNode.addChild(node)
+            confettiParticles.append(ConfettiParticle(
+                node: node,
+                vx: CGFloat.random(in: -200...200),
+                vr: CGFloat.random(in: -6...6)
+            ))
         }
     }
 }
