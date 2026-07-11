@@ -8,8 +8,9 @@
 //  (CONSTITUTION §11). `MatchScene` renders this state; it does not drive it.
 //
 //  TWO-BALL SYSTEM: Each team has its own ball. Balls collide with each other and
-//  the arena wall. A ball that exits through the rotating gap → opposing team
-//  scores. Player discs are permanently retired.
+//  the arena wall. A ball that goes out through the rotating gap (the goal) →
+//  that ball's OWN team scores (football logic). Player discs are permanently
+//  retired.
 
 import CoreGraphics
 import Foundation
@@ -323,7 +324,7 @@ final class MatchSimulation {
     // MARK: Wall collision + goal detection (combined — exit check before clamp)
 
     /// Processes a ball that is past the arena wall boundary. If the ball is in the
-    /// gap region → goal for the OPPOSING side (ball exits through gap). Otherwise
+    /// gap region → goal for the ball's OWN side (it went in the net). Otherwise
     /// bounces it off the wall. Returns `true` if a goal was scored.
     private func processWallOrGoal(ball: inout Disc, side: Side) -> Bool {
         let dist = ball.position.length
@@ -332,10 +333,11 @@ final class MatchSimulation {
 
         let angle = atan2(ball.position.y, ball.position.x)
 
-        // Ball past wall AND in the gap AND moving outward → exits → opposing scores.
+        // Ball past wall AND in the gap AND moving outward → it goes IN the goal →
+        // the ball's OWN team scores (football logic: you put your ball in the net).
         let outwardVelocity = ball.velocity.dot(ball.position.normalized)
         if isInGap(angle), outwardVelocity > 0 {
-            let scorer: Side = (side == .home) ? .away : .home
+            let scorer: Side = side
             recordGoal(scoredBy: scorer)
             return true
         }

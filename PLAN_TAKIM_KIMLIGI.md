@@ -9,19 +9,18 @@ yaratacağı özel takımı anlamlı kılmak.
 
 ---
 
-## 0. Değişmeyen mekanik (Anayasa — DOKUNULMAZ)
-
-Bu plan aşağıdaki kuralı DEĞİŞTİRMEZ (CONSTITUTION.md §6, §53–55, §77):
+## 0. Temel mekanik (güncel — Anayasa 2026-07 ile değişti)
 
 - Arenada **TEK** dönen kale boşluğu vardır. İki ayrı kale YOKTUR ve
-  getirilmez.
-- **Gol mantığı:** bir takımın topu boşluktan dışarı çıkarsa **karşı takım**
-  gol kazanır. ("Topunu içeride tut, rakibinkini dışarı it.")
+  getirilmez (Anayasa §4.4, §6 — çift kale hâlâ YASAK).
+- **Gol mantığı (YENİ):** bir takımın topu dönen kale boşluğundan dışarı
+  çıkarsa **O TOPUN kendi takımı** gol kazanır. "Topunu kaleye sok" — futbol
+  mantığı. (Eski kural "çıkanın rakibi sayar" idi; tersine çevrildi.)
 - Kullanıcı yalnızca izler (girdi yok). Determinizm korunur: aynı seed + aynı
   takımlar = birebir aynı sonuç.
 
-> Not: Skor yönünü ("kendi topunu çıkaran sayı alsın") değiştirmek Anayasa
-> değişikliğidir ve bu planın KAPSAMI DIŞINDADIR.
+> Skor yönü değişikliği fizik ve toplam gol sayısını DEĞİŞTİRMEZ, yalnızca
+> sayının kime yazıldığını çevirir → mevcut testler kırılmaz.
 
 ---
 
@@ -36,12 +35,15 @@ top). Kullanıcı/preset puanı üç stata dağıtır (her stat min 1, max 5).
 | **Hız** | `targetBallSpeed` | 165 | 172.5 | 180 | 187.5 | 195 | ±8% |
 | **Boyut** | `Disc.radius` | 26 | 27 | 28 | 29 | 30 | ±7% |
 
-**Doğal takaslar (şansı bozmadan eğim verir):**
-- Ağırlık↑: çarpışmada rakibi iter, kendi az itilir; ama boost `impulse/mass`
-  olduğu için hantallaşır.
-- Hız↑: agresif/çok çarpışır; ama boşluğa çabuk ulaşıp kendi çıkma riski artar.
-- Boyut↑: çarpışma yüzeyi/varlık artar; ama `wallBoundary = arenaRadius −
-  radius` küçülür → daha kolay dışarı çıkar (daha kolay gol yer).
+**Doğal takaslar (yeni skor mantığına göre — topunu kaleye ulaştırmak İYİ):**
+- Ağırlık↑: çarpışmada rakibi iter, kendi az itilir (rakip seni kaleden uzak
+  itemez); ama boost `impulse/mass` olduğu için hantallaşır, manevrası yavaş.
+- Hız↑: kaleye daha çabuk ulaşır → daha çok gol fırsatı; ama daha kaotik.
+- Boyut↑: çarpışma yüzeyi/varlık artar; ama büyük top çarpışmalarda daha çok
+  savrulur (daha büyük hedef). Boyutun exit sınırına etkisi için Açık Soru 1.
+
+Hiçbir stat tek başına baskın olmamalı — preset dağılımları kalibrasyonla
+dengelenir. Bantlar dar (±7–15%): seed/şans hâlâ baskın.
 
 **Baseline sabitleri (değişmez referans):** `mass 1.0`, `targetBallSpeed 180`,
 `ballRadius 28`. Statlar bu değerleri top-başına override eder; global sabitler
@@ -174,6 +176,9 @@ top değince süreli modifier.
 
 ## Sıra ve bağımlılıklar
 
+0. **Aşama 0 (TAMAMLANDI)** — Skor yönü tersine çevrildi (kaleye giren topun
+   kendi takımı sayar). `MatchSimulation.swift` + `CONSTITUTION.md` güncellendi.
+   Fizik/toplam gol değişmedi, testler kırılmadı.
 1. **Aşama 1** (stat motoru) — temel; her şey buna dayanır.
 2. **Aşama 2** (oluşturucu) — Aşama 1'in TeamStats'ına bağımlı.
 3. **Aşama 3** (efekt) — bağımsız, araya alınabilir.
@@ -185,7 +190,10 @@ tarafında (bu ortamda Swift toolchain yok).
 
 ## Açık sorular (kullanıcı kararı)
 
-1. Boyut statı exit sınırını etkilesin mi (büyük top daha kolay gol yer), yoksa
-   exit sınırı sabit baseline radius'a mı bağlansın? (Aşama 1'de karar.)
+1. **(Önem arttı)** Yeni skor mantığında "büyük top daha kolay dışarı çıkar"
+   artık **bedava gol avantajı** demek (kendi takımı sayar). Bu boyutu fazla
+   güçlü yapabilir. Öneri: exit sınırını radius'tan bağımsız, sabit baseline'a
+   bağla (`arenaRadius − 28`) → boyut yalnız görsel + çarpışma etkisi olsun,
+   skoru doğrudan şişirmesin. (Aşama 1'de karar; kalibrasyonla doğrula.)
 2. Preset 6 takımın kesin stat dağılımı (öneriyi kalibrasyonla getireceğim).
 3. Forma pattern seti 6 desen yeterli mi, yoksa daha fazla mı?
