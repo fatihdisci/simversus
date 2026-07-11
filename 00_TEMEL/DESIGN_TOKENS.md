@@ -1,19 +1,26 @@
 # DESIGN_TOKENS.md — SimVersus Görsel Sistem
 
-> `DesignSystem/` altında Swift'e çevrilir (Parça 1a). Yön: koyu zeminli, "stadyum gece maçı" hissi — arena parlak, UI geride durur. Emoji ikon YASAK, SF Symbols + parametrik badge kullanılır.
+> `DesignSystem/` altında Swift'e çevrilir. Yön: katmanlı koyu zeminli
+> **Gece Arenası / Canlı Yayın** hissi — arena parlak, UI onu çerçeveler.
+> Emoji ikon YASAK, SF Symbols + parametrik badge kullanılır.
 
 ## Renk tokenları
 
 | Token | Hex | Kullanım |
 |---|---|---|
-| `bg.primary` | #0E1116 | Ana zemin (koyu) |
-| `bg.elevated` | #171C24 | Kartlar, sheet |
+| `bg.primary` | #0B111B | Ana zemin (koyu) |
+| `bg.elevated` | #141D2A | Kartlar, sheet |
+| `bg.deep` | #070B12 | Gradient kenarları, en derin zemin |
+| `bg.elevatedStrong` | #1A2636 | Odaklı/seçili yüzey |
+| `border.subtle` | #263549 | Kart hairline |
+| `border.strong` | #41546D | Odak ve kontrol çerçevesi |
 | `bg.arena` | #101820 | Maç sahnesi zemini (MVP düz arka plan) |
 | `arena.wall` | #2A3442 | Arena çemberi çizgisi |
 | `arena.line` | #3A4656 | Orta çizgi, işaretler |
 | `text.primary` | #F2F4F7 | |
 | `text.secondary` | #9AA4B2 | |
 | `accent` | #38E07B | CTA, canlı skor vurgusu ("çim yeşili neon") |
+| `energy` | #19D8F2 | Arena enerjisi ve dekoratif vurgu; CTA değildir |
 | `accent.warning` | #F2C230 | |
 | `danger` | #E5484D | |
 | `goal.flash` | #FFFFFF @ %85 | Gol anı ekran flaşı |

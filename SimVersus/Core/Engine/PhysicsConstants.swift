@@ -23,15 +23,25 @@ enum PhysicsConstants {
     static let arenaRotationSpeed: CGFloat = 0.8
     /// Wall bounce elasticity.
     static let arenaWallRestitution: CGFloat = 0.9
+    /// Minimum speed directed away from a wall after contact. Prevents shallow
+    /// grazing hits from visually sticking to and sliding around the ring.
+    static let minimumWallSeparationSpeed: CGFloat = 105
+    /// Fraction of tangential velocity retained after an arena-wall collision.
+    /// Gives the rounded wall a little friction so shallow hits visibly rebound.
+    static let arenaWallTangentRetention: CGFloat = 0.72
+    /// Tiny positional inset after a wall collision, avoiding repeat contact on
+    /// the immediately following fixed step due to floating-point tolerance.
+    static let wallSeparationInset: CGFloat = 0.75
     /// Angular width of the single goal gap on the arena ring (rad).
-    static let gapWidth: CGFloat = 0.26
+    static let gapWidth: CGFloat = 0.54
     /// Extra distance beyond arenaRadius a ball centre must pass to be "out".
-    static let exitMargin: CGFloat = 14
+    static let exitMargin: CGFloat = 24
 
     // MARK: Balls (each is a team's badge — no separate ball asset)
 
-    /// Badge-sized ball radius. Large because "ball" = team identity.
-    static let ballRadius: CGFloat = 30
+    /// Baseline ball radius (level-3 reference). Per-team radius comes from
+    /// `TeamStats.size` via `ballRadiusByLevel`; this stays the neutral value.
+    static let ballRadius: CGFloat = 28
     /// Restitution when two balls collide.
     static let ballToBallRestitution: CGFloat = 0.85
     /// Restitution when a ball bounces off the arena wall.
@@ -40,10 +50,25 @@ enum PhysicsConstants {
     static let ballLinearDamping: CGFloat = 0.06
     /// Angular damping (cosmetic spin decay).
     static let ballAngularDamping: CGFloat = 0.25
-    /// Fixed mass for all balls (teams are equal strength; power-ups may modify later).
+    /// Baseline ball mass (level-3 reference). Per-team mass comes from
+    /// `TeamStats.weight` via `massByLevel`; this stays the neutral value.
     static let ballMass: CGFloat = 1.0
     /// Random impulse magnitude range applied to each ball at kickoff/reset.
     static let kickoffImpulseRange: ClosedRange<CGFloat> = 85...155
+
+    // MARK: Team stats (per-team modifiers — level 1...5, fixed budget)
+
+    /// Fixed point budget every team (preset or custom) spends across its three
+    /// stats, so no team is globally stronger — they only differ in profile.
+    static let statBudget: Int = 9
+    /// Valid per-stat level range.
+    static let statLevelRange: ClosedRange<Int> = 1...5
+    /// Level 1...5 → `Disc.mass`. Index 2 (level 3) equals `ballMass` baseline.
+    static let massByLevel: [CGFloat] = [0.85, 0.925, 1.00, 1.075, 1.15]
+    /// Level 1...5 → `targetBallSpeed`. Index 2 equals `targetBallSpeed` baseline.
+    static let targetSpeedByLevel: [CGFloat] = [165, 172.5, 180, 187.5, 195]
+    /// Level 1...5 → `Disc.radius`. Index 2 equals `ballRadius` baseline.
+    static let ballRadiusByLevel: [CGFloat] = [26, 27, 28, 29, 30]
 
     // MARK: Boost (periodic self-impulse — keeps balls lively)
 
@@ -65,7 +90,8 @@ enum PhysicsConstants {
 
     // MARK: Speed normalization (Mac-oto inspired — keeps balls lively)
 
-    /// Target speed balls are normalized toward each frame (pt/s).
+    /// Baseline target speed (level-3 reference). Per-team target comes from
+    /// `TeamStats.speed` via `targetSpeedByLevel`; this stays the neutral value.
     static let targetBallSpeed: CGFloat = 180
     /// Blend factor for speed normalization per frame (0–1, lower = smoother).
     static let speedNormalizationBlend: CGFloat = 0.035
@@ -77,13 +103,34 @@ enum PhysicsConstants {
     /// Range of possible rotation speeds when direction changes (rad/s).
     static let rotationSpeedRange: ClosedRange<CGFloat> = 0.5...1.05
 
+    // MARK: Power-ups (periodic seeded pickups — temporary ball modifiers)
+
+    /// How long a collected power-up stays active on a ball (seconds).
+    static let powerUpDuration: TimeInterval = 5
+    /// Seeded interval between power-up spawns (seconds).
+    static let powerUpSpawnIntervalRange: ClosedRange<CGFloat> = 8...15
+    /// Most power-ups on the pitch at once.
+    static let maxActivePowerUps: Int = 2
+    /// Pickup collision radius (a ball collects it within its own radius + this).
+    static let powerUpRadius: CGFloat = 15
+    /// Power-ups spawn within this fraction of the arena radius (reachable, inner).
+    static let powerUpSpawnInnerFraction: CGFloat = 0.55
+    /// Radius multiplier for the grow / shrink pickups.
+    static let powerUpGrowScale: CGFloat = 1.25
+    static let powerUpShrinkScale: CGFloat = 0.80
+    /// Target-speed multiplier for the speed-up / slow-down pickups.
+    static let powerUpSpeedUpScale: CGFloat = 1.25
+    static let powerUpSlowScale: CGFloat = 0.80
+
     // MARK: Match flow
 
-    /// Real seconds of play → shown as 90 minutes (1 s = 1 min).
-    static let matchDuration: TimeInterval = 90
-    /// Pause at half time before the second-half kickoff.
-    static let halfTimePause: TimeInterval = 2.0
-    /// Pause after a goal (score overlay + celebration).
+    /// Total real-time match duration. The HUD maps this interval onto 90 match minutes.
+    static let matchDuration: TimeInterval = 30
+    /// Regulation minutes shown by the HUD regardless of real-time duration.
+    static let displayMatchMinutes: Int = 90
+    /// Duration of the non-blocking half-time announcement.
+    static let halfTimePause: TimeInterval = 1.8
+    /// Duration of the non-blocking goal overlay + celebration.
     static let goalCelebrationPause: TimeInterval = 1.6
     /// Simulation speed multiplier (1× in the MVP; 1/2/4× arrives in Phase 2d).
     static let maxSimSpeed: CGFloat = 1

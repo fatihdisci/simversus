@@ -1,134 +1,191 @@
 //  TeamSelectView.swift
-//  Features/TeamSelect
-//
-//  Home / Away team selection. Lists the MVP teams for each side; a team picked
-//  on one side is disabled on the other. When both sides are chosen the Kick Off
-//  CTA activates and calls `onStart`. Navigation is wired in Part 1d.
+//  One-pool matchup builder with a focused Home/Away slot.
 
 import SwiftUI
+import SwiftData
+
+enum MatchupSelectionSide {
+    case home, away
+}
 
 struct TeamSelectView: View {
     let teams: [Team]
+    let onCreateTeam: () -> Void
     let onStart: (_ home: Team, _ away: Team) -> Void
 
+    @Query(sort: \CustomTeam.createdAt) private var customTeams: [CustomTeam]
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var matchup = TeamMatchup()
+    @State private var activeSide: MatchupSelectionSide = .home
 
-    private let badgeSize: CGFloat = 64
+    private var selectableTeams: [Team] { teams + customTeams.map(\.asTeam) }
+    private var slotAvailable: Bool { CustomTeamStore.canCreate(existingCount: customTeams.count) }
+    private var activeTeam: Team? { activeSide == .home ? matchup.home : matchup.away }
 
     var body: some View {
         ZStack {
-            Palette.bgPrimary.ignoresSafeArea()
+            ArenaBackground(primaryTint: matchup.home?.primaryColor ?? Palette.energy,
+                            secondaryTint: matchup.away?.primaryColor ?? Palette.accent)
 
-            VStack(spacing: Spacing.l) {
-                Text("teamselect.title")
-                    .font(.titleXL)
-                    .foregroundStyle(Palette.textPrimary)
-                    .padding(.top, Spacing.m)
-
-                teamRow(titleKey: "teamselect.home",
-                        isSelected: { matchup.home == $0 },
-                        isDisabled: { matchup.isDisabledForHome($0) },
-                        select: { matchup.selectHome($0) })
-
-                teamRow(titleKey: "teamselect.away",
-                        isSelected: { matchup.away == $0 },
-                        isDisabled: { matchup.isDisabledForAway($0) },
-                        select: { matchup.selectAway($0) })
-
-                Spacer()
-                kickOffButton
+            ScrollView {
+                VStack(alignment: .leading, spacing: Spacing.l) {
+                    header
+                    matchupCard
+                    teamPool
+                }
+                .padding(.horizontal, Spacing.l)
+                .padding(.top, Spacing.s)
+                .padding(.bottom, Spacing.l)
             }
-            .padding(.horizontal, Spacing.l)
-            .padding(.bottom, Spacing.l)
+            .scrollIndicators(.hidden)
+        }
+        .safeAreaInset(edge: .bottom) { startBar }
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: Spacing.s) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("teamselect.title")
+                    .font(.screenTitle)
+                    .foregroundStyle(Palette.textPrimary)
+                Spacer()
+                Button(action: { if slotAvailable { onCreateTeam() } }) {
+                    Label("teamselect.create", systemImage: slotAvailable ? "plus" : "lock.fill")
+                        .font(.sectionLabel)
+                        .foregroundStyle(slotAvailable ? Palette.accent : Palette.textTertiary)
+                        .padding(.horizontal, Spacing.s)
+                        .frame(minHeight: Layout.minTouchTarget)
+                        .background(Palette.bgElevated.opacity(0.8), in: Capsule())
+                        .overlay(Capsule().stroke(Palette.borderSubtle))
+                }
+                .buttonStyle(.plain)
+                .disabled(!slotAvailable)
+            }
+            Text("teamselect.subtitle")
+                .font(.body)
+                .foregroundStyle(Palette.textSecondary)
         }
     }
 
-    // MARK: - Subviews
-
-    private func teamRow(titleKey: LocalizedStringKey,
-                         isSelected: @escaping (Team) -> Bool,
-                         isDisabled: @escaping (Team) -> Bool,
-                         select: @escaping (Team) -> Void) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.s) {
-            Text(titleKey)
-                .font(.label)
-                .foregroundStyle(Palette.textSecondary)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: Spacing.m) {
-                    ForEach(teams) { team in
-                        TeamCard(team: team,
-                                 badgeSize: badgeSize,
-                                 isSelected: isSelected(team),
-                                 isDisabled: isDisabled(team)) {
-                            select(team)
-                        }
+    private var matchupCard: some View {
+        ArenaSurface(padding: Spacing.l, isFocused: true) {
+            VStack(spacing: Spacing.m) {
+                HStack(spacing: Spacing.s) {
+                    MatchupSlotView(side: .home,
+                                    team: matchup.home,
+                                    isActive: activeSide == .home) {
+                        activeSide = .home
+                    }
+                    VStack(spacing: Spacing.xs) {
+                        Text("common.versus")
+                            .font(.headline)
+                            .foregroundStyle(Palette.textPrimary)
+                        Circle()
+                            .fill(matchup.isReady ? Palette.accent : Palette.textTertiary)
+                            .frame(width: 6, height: 6)
+                            .shadow(color: matchup.isReady ? Palette.accent : .clear, radius: 5)
+                            .modifier(PulseEffect(active: matchup.isReady && !reduceMotion))
+                    }
+                    .frame(width: 40)
+                    MatchupSlotView(side: .away,
+                                    team: matchup.away,
+                                    isActive: activeSide == .away) {
+                        activeSide = .away
                     }
                 }
-                .padding(.horizontal, Spacing.xs)
-                .padding(.vertical, Spacing.xs)
+
+                Text(activeSide == .home ? "teamselect.focus.home" : "teamselect.focus.away")
+                    .font(.caption)
+                    .foregroundStyle(Palette.accent)
+                    .frame(maxWidth: .infinity)
             }
         }
     }
 
-    private var kickOffButton: some View {
-        Button {
-            if let home = matchup.home, let away = matchup.away {
-                onStart(home, away)
+    private var teamPool: some View {
+        VStack(alignment: .leading, spacing: Spacing.m) {
+            ArenaSectionHeader(title: "teamselect.pool",
+                               trailingText: activeSide == .home ? "teamselect.home" : "teamselect.away")
+
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Spacing.s), count: 3),
+                      spacing: Spacing.s) {
+                ForEach(selectableTeams) { team in
+                    TeamPoolCard(team: team,
+                                 selection: selection(for: team),
+                                 isDisabled: isDisabled(team)) {
+                        select(team)
+                    }
+                }
             }
-        } label: {
-            Text("teamselect.start")
-                .font(.titleXL)
-                .foregroundStyle(Palette.bgPrimary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, Spacing.m)
-                .background(
-                    matchup.isReady ? Palette.accent : Palette.arenaLine,
-                    in: RoundedRectangle(cornerRadius: Radius.button, style: .continuous)
-                )
         }
-        .buttonStyle(.plain)
-        .disabled(!matchup.isReady)
+    }
+
+    private var startBar: some View {
+        VStack(spacing: 0) {
+            Rectangle()
+                .fill(Palette.borderSubtle)
+                .frame(height: 1)
+            ArenaCTAButton(title: matchup.isReady ? "teamselect.start" : "teamselect.start.disabled",
+                           systemImage: matchup.isReady ? "play.fill" : nil,
+                           kind: .primary,
+                           isEnabled: matchup.isReady) {
+                if let home = matchup.home, let away = matchup.away { onStart(home, away) }
+            }
+            .padding(.horizontal, Spacing.l)
+            .padding(.vertical, Spacing.s)
+        }
+        .background(.ultraThinMaterial)
+    }
+
+    private func selection(for team: Team) -> MatchupSelectionSide? {
+        if matchup.home == team { return .home }
+        if matchup.away == team { return .away }
+        return nil
+    }
+
+    private func isDisabled(_ team: Team) -> Bool {
+        activeSide == .home ? matchup.isDisabledForHome(team) : matchup.isDisabledForAway(team)
+    }
+
+    private func select(_ team: Team) {
+        switch activeSide {
+        case .home:
+            let wasSelected = matchup.home == team
+            matchup.selectHome(team)
+            if !wasSelected, matchup.home != nil { activeSide = .away }
+        case .away:
+            matchup.selectAway(team)
+        }
     }
 }
 
-/// A single selectable team: badge + localized name, with selected / disabled
-/// visual states.
-private struct TeamCard: View {
-    let team: Team
-    let badgeSize: CGFloat
-    let isSelected: Bool
-    let isDisabled: Bool
-    let action: () -> Void
+/// A gentle, indefinite scale pulse used to draw the eye to the readiness dot
+/// once both slots are filled. Settles back to rest when `active` turns off and
+/// never animates when Reduce Motion is on (the caller gates `active`).
+private struct PulseEffect: ViewModifier {
+    let active: Bool
+    @State private var expanded = false
 
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: Spacing.xs) {
-                TeamBadgeView(team: team, size: badgeSize)
-                Text(LocalizedStringKey(team.nameKey))
-                    .font(.body)
-                    .foregroundStyle(Palette.textPrimary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-                    .minimumScaleFactor(0.7)
-                    .frame(width: badgeSize + Spacing.xl)
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(expanded ? 1.35 : 1)
+            .onAppear { sync() }
+            .onChange(of: active) { _, _ in sync() }
+    }
+
+    private func sync() {
+        if active {
+            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+                expanded = true
             }
-            .padding(Spacing.s)
-            .background(
-                isSelected ? Palette.bgElevated : Color.clear,
-                in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
-                    .strokeBorder(isSelected ? Palette.accent : Color.clear, lineWidth: 2)
-            )
+        } else {
+            withAnimation(.easeOut(duration: 0.2)) { expanded = false }
         }
-        .buttonStyle(.plain)
-        .disabled(isDisabled)
-        .opacity(isDisabled ? 0.3 : 1)
     }
 }
 
 #Preview {
-    TeamSelectView(teams: TeamStore().mvpTeams) { _, _ in }
+    TeamSelectView(teams: TeamStore().mvpTeams, onCreateTeam: {}) { _, _ in }
+        .modelContainer(for: CustomTeam.self, inMemory: true)
 }

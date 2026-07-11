@@ -8,6 +8,7 @@
 //  the user cannot swipe back onto a paused scene.
 
 import SwiftUI
+import SwiftData
 
 struct RootView: View {
     @EnvironmentObject private var appState: AppState
@@ -35,13 +36,22 @@ struct RootView: View {
             HomeView(onPlay: { path = [.teamSelect] })
 
         case .teamSelect:
-            TeamSelectView(teams: teams) { home, away in
-                let config = MatchConfig(homeTeam: home, awayTeam: away)
-                path.append(.match(config))
-            }
+            TeamSelectView(
+                teams: teams,
+                onCreateTeam: { path.append(.teamCreator) },
+                onStart: { home, away in
+                    let config = MatchConfig(homeTeam: home, awayTeam: away)
+                    path.append(.match(config))
+                }
+            )
+
+        case .teamCreator:
+            TeamCreatorView(onDone: { if !path.isEmpty { path.removeLast() } })
 
         case .match(let config):
-            MatchView(config: config) { result in
+            MatchView(config: config, onExit: {
+                path = [.teamSelect]
+            }) { result in
                 appState.matchesPlayedCount += 1
                 // Replace the match route with the result so the user can't
                 // swipe back onto the paused scene.
@@ -79,5 +89,6 @@ struct RootView: View {
 #Preview {
     RootView()
         .environmentObject(AppState())
+        .modelContainer(for: CustomTeam.self, inMemory: true)
         .preferredColorScheme(.dark)
 }

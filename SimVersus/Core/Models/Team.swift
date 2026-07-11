@@ -30,9 +30,39 @@ struct Team: Codable, Identifiable, Hashable {
     /// 1 = active in the MVP, 2 = unlocked later (Phase 4b).
     let tier: Int
     let baseStrength: Int
+    /// Mechanical identity (weight/speed/size). Optional in JSON — a team without
+    /// a `stats` block falls back to the neutral 3/3/3 baseline.
+    let stats: TeamStats
+    /// Kit pattern painted over the primary colour. Optional in JSON — defaults
+    /// to `.solid`. Preset teams are solid; custom teams may pick a pattern.
+    let pattern: KitPattern
 
     /// Primary colour resolved from `primary`.
     var primaryColor: Color { Color(hex: primary) }
     /// Secondary colour resolved from `secondary`.
     var secondaryColor: Color { Color(hex: secondary) }
+}
+
+extension Team {
+    private enum CodingKeys: String, CodingKey {
+        case id, nameKey, nameTR, nameEN, short, primary, secondary, badgeShape, tier, baseStrength, stats, pattern
+    }
+
+    /// Custom decode so a missing `stats` block defaults to `.balanced` instead
+    /// of failing — keeps older/hand-edited teams.json entries valid.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        nameKey = try c.decode(String.self, forKey: .nameKey)
+        nameTR = try c.decode(String.self, forKey: .nameTR)
+        nameEN = try c.decode(String.self, forKey: .nameEN)
+        short = try c.decode(String.self, forKey: .short)
+        primary = try c.decode(String.self, forKey: .primary)
+        secondary = try c.decode(String.self, forKey: .secondary)
+        badgeShape = try c.decode(BadgeShape.self, forKey: .badgeShape)
+        tier = try c.decode(Int.self, forKey: .tier)
+        baseStrength = try c.decode(Int.self, forKey: .baseStrength)
+        stats = try c.decodeIfPresent(TeamStats.self, forKey: .stats) ?? .balanced
+        pattern = try c.decodeIfPresent(KitPattern.self, forKey: .pattern) ?? .solid
+    }
 }

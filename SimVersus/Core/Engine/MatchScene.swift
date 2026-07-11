@@ -24,17 +24,28 @@ struct MatchHUDSnapshot: Equatable {
 
 // MARK: - Particle types
 
+// Particles are SKSpriteNodes sharing two cached textures (circle/square) so
+// SpriteKit can batch them into a single draw pass — per-node SKShapeNodes each
+// cost their own draw and allocate on every spawn, which caused visible hitches
+// on collision/goal bursts. Nodes are recycled through `particlePool`.
+
 private struct CollisionParticle {
-    var node: SKShapeNode
+    var node: SKSpriteNode
     var velocity: CGPoint
     var lifetime: TimeInterval
     var age: TimeInterval = 0
 }
 
 private struct TrailParticle {
-    var node: SKShapeNode
+    var node: SKSpriteNode
     var lifetime: TimeInterval
     var age: TimeInterval = 0
+}
+
+private struct ConfettiParticle {
+    var node: SKSpriteNode
+    var vx: CGFloat
+    var vr: CGFloat
 }
 
 final class MatchScene: SKScene {
@@ -45,6 +56,7 @@ final class MatchScene: SKScene {
     var onMatchEnded: ((MatchResult) -> Void)?
     var onHUDUpdate: ((MatchHUDSnapshot) -> Void)?
     var onGoalScored: (() -> Void)?
+    var onHalfTime: (() -> Void)?
 
     // Hierarchy: world → shakeNode → arenaNode + ballNodes + particles.
     private let worldNode = SKNode()
@@ -54,16 +66,25 @@ final class MatchScene: SKScene {
     private var awayBallNode = SKSpriteNode()
     private var homeShadowNode = SKShapeNode()
     private var awayShadowNode = SKShapeNode()
+    private var homeEffectRing = SKShapeNode()
+    private var awayEffectRing = SKShapeNode()
 
-    // Particle pools.
+    // Power-up pickup nodes, keyed by the simulation's power-up id.
+    private var powerUpNodes: [Int: SKNode] = [:]
+
+    // Live particles + shared sprite pool (recycled nodes, capped size).
     private var collisionParticles: [CollisionParticle] = []
     private var trailParticles: [TrailParticle] = []
-    private var confettiNodes: [SKShapeNode] = []
+    private var confettiParticles: [ConfettiParticle] = []
+    private var particlePool: [SKSpriteNode] = []
+    private let particlePoolLimit = 256
+    private let maxLiveCollisionParticles = 150
 
     private var lastUpdateTime: TimeInterval = 0
     private var accumulator: TimeInterval = 0
     private var lastSnapshot = MatchHUDSnapshot()
     private var lastTotalGoals = 0
+    private var didPublishHalfTime = false
 
     // Camera shake.
     private var shakeIntensity: CGFloat = 0
@@ -72,6 +93,16 @@ final class MatchScene: SKScene {
     // Cosmetic values.
     private let wallStrokeWidth: CGFloat = 3
     private let centerRingFraction: CGFloat = 0.18
+
+    /// Points reserved by the HUD at the top of the screen. The arena is
+    /// centred in the space *below* this inset (not the whole screen), so the
+    /// scoreboard no longer leaves dead space above and a large gap below.
+    var topReservedInset: CGFloat = 0 {
+        didSet {
+            guard abs(oldValue - topReservedInset) > 0.5 else { return }
+            layoutWorld()
+        }
+    }
 
     // Track last processed collision events to avoid duplicates.
     private var processedCollisionCount: Int = 0
@@ -91,6 +122,9 @@ final class MatchScene: SKScene {
 
     override func didMove(to view: SKView) {
         guard worldNode.parent == nil else { return }
+        view.preferredFramesPerSecond = 60
+        view.shouldCullNonVisibleNodes = true
+        view.ignoresSiblingOrder = true
         buildNodes()
         layoutWorld()
     }
@@ -112,16 +146,32 @@ final class MatchScene: SKScene {
         shakeNode.addChild(homeBallNode)
         shakeNode.addChild(awayBallNode)
 
-        // Ball shadows (ellipses under balls).
-        homeShadowNode = makeShadowNode()
-        awayShadowNode = makeShadowNode()
+        // Ball shadows (ellipses under balls) — sized to each team's radius.
+        homeShadowNode = makeShadowNode(radius: homeTeam.stats.radius)
+        awayShadowNode = makeShadowNode(radius: awayTeam.stats.radius)
         shakeNode.addChild(homeShadowNode)
         shakeNode.addChild(awayShadowNode)
+
+        // Active power-up rings (hidden until a ball holds an effect).
+        homeEffectRing = makeEffectRing(radius: homeTeam.stats.radius + 5)
+        awayEffectRing = makeEffectRing(radius: awayTeam.stats.radius + 5)
+        shakeNode.addChild(homeEffectRing)
+        shakeNode.addChild(awayEffectRing)
     }
 
-    private func makeShadowNode() -> SKShapeNode {
-        let w = PhysicsConstants.ballRadius * 1.45 * 2
-        let h = max(6, PhysicsConstants.ballRadius * 0.42) * 2
+    private func makeEffectRing(radius: CGFloat) -> SKShapeNode {
+        let node = SKShapeNode(circleOfRadius: radius)
+        node.fillColor = .clear
+        node.lineWidth = 2.5
+        node.strokeColor = .white
+        node.zPosition = 9
+        node.isHidden = true
+        return node
+    }
+
+    private func makeShadowNode(radius: CGFloat) -> SKShapeNode {
+        let w = radius * 1.45 * 2
+        let h = max(6, radius * 0.42) * 2
         let node = SKShapeNode(ellipseOf: CGSize(width: w, height: h))
         node.fillColor = UIColor.black.withAlphaComponent(0.18)
         node.strokeColor = .clear
@@ -131,17 +181,31 @@ final class MatchScene: SKScene {
 
     /// Creates a circular ball sprite with the team badge symbol.
     private func makeBallNode(team: Team) -> SKSpriteNode {
-        let diameter = PhysicsConstants.ballRadius * 2
+        let diameter = team.stats.radius * 2
         let size = CGSize(width: diameter, height: diameter)
 
         let renderer = UIGraphicsImageRenderer(size: size)
         let image = renderer.image { ctx in
             let rect = CGRect(origin: .zero, size: size)
+            let cg = ctx.cgContext
             UIColor(team.primaryColor).setFill()
-            ctx.cgContext.fillEllipse(in: rect)
+            cg.fillEllipse(in: rect)
+
+            // Kit pattern — secondary-coloured regions clipped to the ball.
+            let patternPath = team.pattern.secondaryRegionsCGPath(in: rect)
+            if !patternPath.isEmpty {
+                cg.saveGState()
+                cg.addEllipse(in: rect)
+                cg.clip()
+                cg.addPath(patternPath)
+                UIColor(team.secondaryColor).setFill()
+                cg.fillPath()
+                cg.restoreGState()
+            }
+
             UIColor(team.secondaryColor).setStroke()
-            ctx.cgContext.setLineWidth(2)
-            ctx.cgContext.strokeEllipse(in: rect.insetBy(dx: 1, dy: 1))
+            cg.setLineWidth(2)
+            cg.strokeEllipse(in: rect.insetBy(dx: 1, dy: 1))
             let symbolRect = rect.insetBy(dx: diameter * 0.22, dy: diameter * 0.22)
             UIColor(team.secondaryColor).setFill()
             Self.drawBadgeSymbol(shape: team.badgeShape, in: symbolRect, ctx: ctx.cgContext)
@@ -151,6 +215,55 @@ final class MatchScene: SKScene {
         node.size = size
         node.zPosition = 10
         return node
+    }
+
+    // MARK: Particle textures & pool
+
+    /// Shared white circle texture — tinted per particle via `color`/`colorBlendFactor`.
+    private static let circleParticleTexture: SKTexture = {
+        let d: CGFloat = 16
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: d, height: d))
+        let image = renderer.image { ctx in
+            UIColor.white.setFill()
+            ctx.cgContext.fillEllipse(in: CGRect(x: 0, y: 0, width: d, height: d))
+        }
+        return SKTexture(image: image)
+    }()
+
+    /// Shared white square texture for confetti rectangles.
+    private static let squareParticleTexture: SKTexture = {
+        let d: CGFloat = 8
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: d, height: d))
+        let image = renderer.image { ctx in
+            UIColor.white.setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: d, height: d))
+        }
+        return SKTexture(image: image)
+    }()
+
+    private func obtainParticleSprite(texture: SKTexture, size: CGSize, color: UIColor) -> SKSpriteNode {
+        let node: SKSpriteNode
+        if let recycled = particlePool.popLast() {
+            node = recycled
+            node.texture = texture
+        } else {
+            node = SKSpriteNode(texture: texture)
+        }
+        node.size = size
+        node.xScale = 1
+        node.yScale = 1
+        node.zRotation = 0
+        node.alpha = 1
+        node.color = color
+        node.colorBlendFactor = 1
+        return node
+    }
+
+    private func recycleParticleSprite(_ node: SKSpriteNode) {
+        node.removeFromParent()
+        if particlePool.count < particlePoolLimit {
+            particlePool.append(node)
+        }
     }
 
     // MARK: Badge symbol paths (static)
@@ -262,72 +375,8 @@ final class MatchScene: SKScene {
         core.lineCap = .round
         arenaNode.addChild(core)
 
-        // ── GOAL MOUTH (Mac-oto inspired) ──
-
-        let goalR: CGFloat = r + 4  // slightly outside wall
-
-        // Goal threshold line across the gap opening.
-        let threshold = CGMutablePath()
-        let t1 = CGPoint(x: cos(-half) * goalR, y: sin(-half) * goalR)
-        let t2 = CGPoint(x: cos(half) * goalR, y: sin(half) * goalR)
-        threshold.move(to: t1)
-        threshold.addLine(to: t2)
-        let thresholdNode = SKShapeNode(path: threshold)
-        thresholdNode.strokeColor = UIColor.white
-        thresholdNode.lineWidth = 3
-        thresholdNode.lineCap = .round
-        arenaNode.addChild(thresholdNode)
-
-        // Goalposts — thick bright posts at each edge, angled outward.
-        for side: CGFloat in [-1, 1] {
-            let a = side * half
-            let inner = CGPoint(x: cos(a) * goalR, y: sin(a) * goalR)
-            let outer = CGPoint(x: cos(a + side * 0.35) * (goalR + 28),
-                                y: sin(a + side * 0.35) * (goalR + 28))
-            let post = CGMutablePath()
-            post.move(to: inner)
-            post.addLine(to: outer)
-            let postNode = SKShapeNode(path: post)
-            postNode.strokeColor = UIColor(red: 1, green: 0.84, blue: 0.1, alpha: 1) // gold
-            postNode.lineWidth = 5
-            postNode.lineCap = .round
-            arenaNode.addChild(postNode)
-
-            // Bright white tip at post end.
-            let tip = SKShapeNode(circleOfRadius: 4)
-            tip.fillColor = .white
-            tip.strokeColor = .clear
-            tip.position = outer
-            arenaNode.addChild(tip)
-        }
-
-        // Net — horizontal lines extending outward from gap.
-        for i in 1...4 {
-            let ext = goalR + CGFloat(i) * 11
-            let n1 = CGPoint(x: cos(-half) * ext, y: sin(-half) * ext)
-            let n2 = CGPoint(x: cos(half) * ext, y: sin(half) * ext)
-            let netLine = CGMutablePath()
-            netLine.move(to: n1)
-            netLine.addLine(to: n2)
-            let netNode = SKShapeNode(path: netLine)
-            netNode.strokeColor = UIColor.white.withAlphaComponent(CGFloat(0.22 - Double(i) * 0.04))
-            netNode.lineWidth = 1.5
-            arenaNode.addChild(netNode)
-        }
-
-        // Vertical net lines connecting the horizontal ones.
-        for j in [-1, 1] {
-            let a = CGFloat(j) * half
-            let path = CGMutablePath()
-            let inner = CGPoint(x: cos(a) * goalR, y: sin(a) * goalR)
-            let outer = CGPoint(x: cos(a) * (goalR + 44), y: sin(a) * (goalR + 44))
-            path.move(to: inner)
-            path.addLine(to: outer)
-            let vNode = SKShapeNode(path: path)
-            vNode.strokeColor = UIColor.white.withAlphaComponent(0.18)
-            vNode.lineWidth = 2
-            arenaNode.addChild(vNode)
-        }
+        // ── GOAL (net box seated in the rotating wall gap) ──
+        buildGoal(radius: r, half: half)
 
         // Centre marks so rotation is visible.
         let line = SKShapeNode(rectOf: CGSize(width: r * 2, height: wallStrokeWidth))
@@ -342,6 +391,61 @@ final class MatchScene: SKScene {
         arenaNode.addChild(ring)
     }
 
+    /// Builds a rectangular goal (frame + net mesh) seated in the wall gap.
+    /// Gap is centred on the +X axis in arena-local space; `arenaNode` (this goal
+    /// included) is rotated to the live gap angle each frame, so the goal always
+    /// stays glued to the opening. The frame is an outward "⊐" bracket whose open
+    /// mouth faces the arena interior — the direction a ball travels to score.
+    private func buildGoal(radius r: CGFloat, half: CGFloat) {
+        let depth: CGFloat = PhysicsConstants.exitMargin + 8
+        let frontX = cos(half) * r              // both gap edges share this x (mouth is a chord)
+        let topY = sin(half) * r
+        let botY = -topY
+        let backX = frontX + depth
+
+        // Net mesh — subtle white crosshatch filling the box (behind the frame).
+        let mesh = CGMutablePath()
+        let columns = 3                         // lines parallel to the back bar
+        for i in 1...columns {
+            let x = frontX + depth * CGFloat(i) / CGFloat(columns + 1)
+            mesh.move(to: CGPoint(x: x, y: botY))
+            mesh.addLine(to: CGPoint(x: x, y: topY))
+        }
+        let rows = 3                            // lines parallel to the posts
+        for i in 1...rows {
+            let y = botY + (topY - botY) * CGFloat(i) / CGFloat(rows + 1)
+            mesh.move(to: CGPoint(x: frontX, y: y))
+            mesh.addLine(to: CGPoint(x: backX, y: y))
+        }
+        let meshNode = SKShapeNode(path: mesh)
+        meshNode.strokeColor = UIColor.white.withAlphaComponent(0.16)
+        meshNode.lineWidth = 1
+        arenaNode.addChild(meshNode)
+
+        // Frame path — top post, back bar, bottom post (mouth stays open).
+        let frame = CGMutablePath()
+        frame.move(to: CGPoint(x: frontX, y: topY))
+        frame.addLine(to: CGPoint(x: backX, y: topY))
+        frame.addLine(to: CGPoint(x: backX, y: botY))
+        frame.addLine(to: CGPoint(x: frontX, y: botY))
+
+        // Soft white glow under the frame (neon-consistent with the arena wall).
+        let glow = SKShapeNode(path: frame)
+        glow.strokeColor = UIColor.white.withAlphaComponent(0.22)
+        glow.lineWidth = 8
+        glow.lineCap = .round
+        glow.lineJoin = .round
+        arenaNode.addChild(glow)
+
+        // Bright solid frame.
+        let frameNode = SKShapeNode(path: frame)
+        frameNode.strokeColor = .white
+        frameNode.lineWidth = 3.5
+        frameNode.lineCap = .round
+        frameNode.lineJoin = .round
+        arenaNode.addChild(frameNode)
+    }
+
     private func wallArcPath(radius: CGFloat, half: CGFloat) -> CGPath {
         let path = CGMutablePath()
         path.addArc(center: .zero, radius: radius, startAngle: half, endAngle: 2 * .pi - half, clockwise: false)
@@ -349,33 +453,56 @@ final class MatchScene: SKScene {
     }
 
     private func layoutWorld() {
-        guard size.width > 0 else { return }
-        worldNode.setScale(PhysicsConstants.arenaRenderWidthFraction * size.width / PhysicsConstants.arenaRadius)
-        worldNode.position = .zero
+        guard size.width > 0, size.height > 0 else { return }
+        // The goal extends beyond the arena ring and sweeps around as the arena
+        // rotates, so its outer radius bounds the arena in every direction.
+        let baseScale = PhysicsConstants.arenaRenderWidthFraction * size.width / PhysicsConstants.arenaRadius
+        let goalFrontRadius = cos(PhysicsConstants.gapWidth / 2) * PhysicsConstants.arenaRadius
+        let goalOuterRadius = goalFrontRadius + PhysicsConstants.exitMargin + 8
+
+        // Fit within both the screen width and the height left below the HUD,
+        // reserving a small gutter for the goal frame/net at any rotation.
+        let horizontalGutter: CGFloat = 16
+        let verticalGutter: CGFloat = 16
+        let availableHeight = max(0, size.height - topReservedInset)
+        let horizontalFit = (size.width / 2 - horizontalGutter) / goalOuterRadius
+        let verticalFit = (availableHeight / 2 - verticalGutter) / goalOuterRadius
+        worldNode.setScale(max(0, min(baseScale, horizontalFit, verticalFit)))
+
+        // anchorPoint is (0.5, 0.5): scene origin sits at screen centre and +y
+        // points up. Shift the arena down by half the reserved inset so it is
+        // centred in the region below the HUD.
+        worldNode.position = CGPoint(x: 0, y: -topReservedInset / 2)
     }
 
     // MARK: Step & render
 
     override func update(_ currentTime: TimeInterval) {
         if lastUpdateTime == 0 { lastUpdateTime = currentTime }
-        let delta = min(currentTime - lastUpdateTime, 0.25)
+        // Cap delta hard: after a hitch/backgrounding the sim clock slips slightly
+        // instead of bursting many catch-up steps in one frame (chained stutter).
+        let delta = min(currentTime - lastUpdateTime, 1.0 / 20.0)
         lastUpdateTime = currentTime
 
         accumulator += delta * TimeInterval(PhysicsConstants.maxSimSpeed)
         var stepsThisFrame = 0
-        while accumulator >= PhysicsConstants.fixedTimeStep, stepsThisFrame < 20, !simulation.isFinished {
+        while accumulator >= PhysicsConstants.fixedTimeStep, stepsThisFrame < 4, !simulation.isFinished {
             simulation.step()
             // Spawn collision particles from events generated this step.
             spawnCollisionEffects()
             accumulator -= PhysicsConstants.fixedTimeStep
             stepsThisFrame += 1
         }
+        // Drop leftover debt beyond one frame's budget so a sustained slow
+        // stretch can never build an ever-growing catch-up queue.
+        accumulator = min(accumulator, PhysicsConstants.fixedTimeStep * 4)
 
         // Visual effects update (frame-rate dependent, not sim-step).
         updateParticles(dt: CGFloat(delta))
         updateCameraShake(dt: CGFloat(delta))
 
         renderState()
+        syncPowerUps()
         publishEvents()
 
         if simulation.isFinished, let result = simulation.result() {
@@ -386,20 +513,100 @@ final class MatchScene: SKScene {
     }
 
     private func renderState() {
-        homeBallNode.position = simulation.homeBall.position
-        homeBallNode.zRotation = simulation.homeBall.rotation
-        awayBallNode.position = simulation.awayBall.position
-        awayBallNode.zRotation = simulation.awayBall.rotation
+        let home = simulation.homeBall
+        let away = simulation.awayBall
+
+        homeBallNode.position = home.position
+        homeBallNode.zRotation = home.rotation
+        homeBallNode.setScale(home.radiusScale) // grow/shrink power-up
+        awayBallNode.position = away.position
+        awayBallNode.zRotation = away.rotation
+        awayBallNode.setScale(away.radiusScale)
         arenaNode.zRotation = simulation.arenaRotation
 
-        // Ball shadows (offset slightly below each ball).
-        let shadowOffY: CGFloat = PhysicsConstants.ballRadius * 0.78
-        homeShadowNode.position = CGPoint(x: simulation.homeBall.position.x, y: simulation.homeBall.position.y + shadowOffY)
-        awayShadowNode.position = CGPoint(x: simulation.awayBall.position.x, y: simulation.awayBall.position.y + shadowOffY)
+        // Ball shadows (offset slightly below each ball, scaled to its radius).
+        homeShadowNode.position = CGPoint(x: home.position.x, y: home.position.y + home.effectiveRadius * 0.78)
+        homeShadowNode.setScale(home.radiusScale)
+        awayShadowNode.position = CGPoint(x: away.position.x, y: away.position.y + away.effectiveRadius * 0.78)
+        awayShadowNode.setScale(away.radiusScale)
+
+        // Active power-up rings track the ball and take the effect's colour.
+        updateEffectRing(homeEffectRing, ball: home)
+        updateEffectRing(awayEffectRing, ball: away)
 
         // Spawn ball trail particles.
-        spawnTrail(for: simulation.homeBall, color: UIColor(homeTeam.primaryColor))
-        spawnTrail(for: simulation.awayBall, color: UIColor(awayTeam.primaryColor))
+        spawnTrail(for: home, color: UIColor(homeTeam.primaryColor))
+        spawnTrail(for: away, color: UIColor(awayTeam.primaryColor))
+    }
+
+    private func updateEffectRing(_ ring: SKShapeNode, ball: Disc) {
+        guard let kind = ball.activePowerUp else { ring.isHidden = true; return }
+        ring.isHidden = false
+        ring.position = ball.position
+        ring.setScale(ball.radiusScale)
+        ring.strokeColor = Self.powerUpStyle(kind).color
+    }
+
+    // MARK: Power-up pickups
+
+    /// Reconciles the on-screen pickup nodes with the simulation's live list:
+    /// removes collected ones, adds newly spawned ones.
+    private func syncPowerUps() {
+        let current = simulation.activePowerUps
+        let liveIDs = Set(current.map(\.id))
+        // Snapshot keys first — never mutate the dictionary while iterating it.
+        for id in Array(powerUpNodes.keys) where !liveIDs.contains(id) {
+            powerUpNodes[id]?.removeFromParent()
+            powerUpNodes[id] = nil
+        }
+        for pu in current where powerUpNodes[pu.id] == nil {
+            let node = makePowerUpNode(kind: pu.kind)
+            node.position = pu.position
+            shakeNode.addChild(node)
+            powerUpNodes[pu.id] = node
+        }
+    }
+
+    private func makePowerUpNode(kind: PowerUpKind) -> SKNode {
+        let style = Self.powerUpStyle(kind)
+        let r = PhysicsConstants.powerUpRadius
+        let container = SKNode()
+        container.zPosition = 8
+
+        let glow = SKShapeNode(circleOfRadius: r + 3)
+        glow.fillColor = style.color.withAlphaComponent(0.20)
+        glow.strokeColor = .clear
+        container.addChild(glow)
+
+        let disc = SKShapeNode(circleOfRadius: r)
+        disc.fillColor = style.color.withAlphaComponent(0.9)
+        disc.strokeColor = .white
+        disc.lineWidth = 1.5
+        container.addChild(disc)
+
+        let label = SKLabelNode(text: style.glyph)
+        label.fontName = "AvenirNext-Bold"
+        label.fontSize = r * 1.2
+        label.fontColor = .white
+        label.verticalAlignmentMode = .center
+        label.horizontalAlignmentMode = .center
+        container.addChild(label)
+
+        // Gentle pulse so pickups read as "collectable".
+        container.run(.repeatForever(.sequence([
+            .scale(to: 1.12, duration: 0.6),
+            .scale(to: 1.0, duration: 0.6)
+        ])))
+        return container
+    }
+
+    private static func powerUpStyle(_ kind: PowerUpKind) -> (color: UIColor, glyph: String) {
+        switch kind {
+        case .grow:     return (UIColor(red: 0.22, green: 0.85, blue: 0.45, alpha: 1), "+")
+        case .shrink:   return (UIColor(red: 0.20, green: 0.75, blue: 0.95, alpha: 1), "-")
+        case .speedUp:  return (UIColor(red: 1.00, green: 0.82, blue: 0.20, alpha: 1), "»")
+        case .slowDown: return (UIColor(red: 0.70, green: 0.45, blue: 0.95, alpha: 1), "«")
+        }
     }
 
     private func publishEvents() {
@@ -417,99 +624,127 @@ final class MatchScene: SKScene {
             onGoalScored?()
             triggerGoalEffects()
         }
+        if !didPublishHalfTime, !simulation.isFirstHalf {
+            didPublishHalfTime = true
+            onHalfTime?()
+        }
     }
 
     // MARK: Collision particles (Mac-oto inspired)
 
     private func spawnCollisionEffects() {
         let events = simulation.pendingCollisionEvents
+        // The simulation clears its event list at the start of every playing
+        // step; a shrunken list means a new step began, so restart the cursor.
+        if events.count < processedCollisionCount { processedCollisionCount = 0 }
         guard events.count > processedCollisionCount else { return }
         let newEvents = events.suffix(from: processedCollisionCount)
         processedCollisionCount = events.count
 
         for event in newEvents {
-            let count = event.isBallBall ? 30 : 15
+            // Subtle: a light spark, not a burst. Fewer, smaller, softer than before.
+            let desired = event.isBallBall ? 12 : 6
+            let count = min(desired, maxLiveCollisionParticles - collisionParticles.count)
+            guard count > 0 else { continue }
             let colors: [UIColor] = event.isBallBall
-                ? [.white, UIColor(red: 1, green: 0.9, blue: 0.4, alpha: 1), UIColor(red: 0, green: 0.9, blue: 1, alpha: 1), UIColor(red: 1, green: 0.4, blue: 0.4, alpha: 1)]
-                : [.white, UIColor(red: 0, green: 0.7, blue: 1, alpha: 1), UIColor(red: 0.6, green: 0.9, blue: 1, alpha: 1)]
+                ? [.white, UIColor(red: 1, green: 0.92, blue: 0.6, alpha: 1), UIColor(red: 0.6, green: 0.9, blue: 1, alpha: 1)]
+                : [.white, UIColor(red: 0.7, green: 0.9, blue: 1, alpha: 1)]
             for _ in 0..<count {
                 let angle = CGFloat.random(in: 0..<2 * .pi)
-                let speed = CGFloat.random(in: 80...400) * event.intensity
-                let size = CGFloat.random(in: 2...6) * event.intensity
-                let node = SKShapeNode(circleOfRadius: max(1, size))
-                node.fillColor = colors.randomElement() ?? .white
-                node.strokeColor = .clear
+                let speed = CGFloat.random(in: 50...220) * event.intensity
+                let radius = max(1, CGFloat.random(in: 1.2...3.5) * event.intensity)
+                let node = obtainParticleSprite(texture: Self.circleParticleTexture,
+                                                size: CGSize(width: radius * 2, height: radius * 2),
+                                                color: colors.randomElement() ?? .white)
                 node.position = event.position
                 node.zPosition = 20
                 shakeNode.addChild(node)
                 collisionParticles.append(CollisionParticle(
                     node: node,
                     velocity: CGPoint(x: cos(angle) * speed, y: sin(angle) * speed),
-                    lifetime: TimeInterval(CGFloat.random(in: 0.3...0.7))
+                    lifetime: TimeInterval(CGFloat.random(in: 0.22...0.45))
                 ))
             }
         }
     }
 
     private func updateParticles(dt: CGFloat) {
+        // All three arrays are compacted in place (write-index) so a frame never
+        // allocates a fresh array, and expired nodes go back to the pool.
+
         // Collision particles.
-        var aliveCollision: [CollisionParticle] = []
-        for var p in collisionParticles {
+        var write = 0
+        for read in 0..<collisionParticles.count {
+            var p = collisionParticles[read]
             p.age += TimeInterval(dt)
-            if p.age >= p.lifetime { p.node.removeFromParent(); continue }
+            if p.age >= p.lifetime { recycleParticleSprite(p.node); continue }
             p.velocity.y -= 400 * dt // gravity-like
             p.velocity.x *= 0.94
             p.velocity.y *= 0.94
             p.node.position.x += p.velocity.x * dt
             p.node.position.y += p.velocity.y * dt
             let progress = CGFloat(p.age / p.lifetime)
-            p.node.alpha = 1 - progress
+            p.node.alpha = 0.9 * (1 - progress)
             p.node.setScale(1 - progress * 0.5)
-            aliveCollision.append(p)
+            collisionParticles[write] = p
+            write += 1
         }
-        collisionParticles = aliveCollision
+        collisionParticles.removeLast(collisionParticles.count - write)
 
         // Trail particles.
-        var aliveTrail: [TrailParticle] = []
-        for var p in trailParticles {
+        write = 0
+        for read in 0..<trailParticles.count {
+            var p = trailParticles[read]
             p.age += TimeInterval(dt)
-            if p.age >= p.lifetime { p.node.removeFromParent(); continue }
+            if p.age >= p.lifetime { recycleParticleSprite(p.node); continue }
             let progress = CGFloat(p.age / p.lifetime)
-            p.node.alpha = 0.18 * (1 - progress)
-            p.node.setScale(1 + progress * 0.3)
-            aliveTrail.append(p)
+            // Fade + taper so the tail thins to nothing behind the ball.
+            p.node.alpha = 0.22 * (1 - progress)
+            p.node.setScale(1 - progress * 0.4)
+            trailParticles[write] = p
+            write += 1
         }
-        trailParticles = aliveTrail
+        trailParticles.removeLast(trailParticles.count - write)
 
         // Confetti (gravity + rotate).
-        for node in confettiNodes {
-            node.position.y -= 300 * dt
-            node.position.x += (node.userData?["vx"] as? CGFloat ?? 0) * dt
-            node.zRotation += (node.userData?["vr"] as? CGFloat ?? 0) * dt
-            node.alpha -= 0.5 * dt
+        write = 0
+        for read in 0..<confettiParticles.count {
+            let p = confettiParticles[read]
+            p.node.position.y -= 300 * dt
+            p.node.position.x += p.vx * dt
+            p.node.zRotation += p.vr * dt
+            p.node.alpha -= 0.5 * dt
+            if p.node.alpha <= 0 { recycleParticleSprite(p.node); continue }
+            confettiParticles[write] = p
+            write += 1
         }
-        confettiNodes.removeAll { $0.alpha <= 0 }
-        for dead in confettiNodes where dead.alpha <= 0 { dead.removeFromParent() }
+        confettiParticles.removeLast(confettiParticles.count - write)
     }
 
-    // MARK: Ball trail (Mac-oto inspired — subtle white dust)
+    // MARK: Ball trail (thin, team-tinted tail that thins out behind the ball)
 
     private func spawnTrail(for ball: Disc, color: UIColor) {
-        // Only spawn trail when moving fast enough and randomly (not every frame).
         let speed = hypot(ball.velocity.x, ball.velocity.y)
-        guard speed > 80, CGFloat.random(in: 0...1) < 0.4 else { return }
+        // Fairly continuous while moving, but each dot is tiny and short-lived so
+        // the result reads as one thin tail rather than a dust cloud.
+        guard speed > 70, CGFloat.random(in: 0...1) < 0.6 else { return }
         let nx = ball.velocity.x / speed
         let ny = ball.velocity.y / speed
-        let tx = ball.position.x - nx * PhysicsConstants.ballRadius * 0.7
-        let ty = ball.position.y - ny * PhysicsConstants.ballRadius * 0.7
-        let size = CGFloat.random(in: 1.5...4)
-        let node = SKShapeNode(circleOfRadius: size)
-        node.fillColor = UIColor.white.withAlphaComponent(0.25)
-        node.strokeColor = .clear
-        node.position = CGPoint(x: tx + CGFloat.random(in: -3...3), y: ty + CGFloat.random(in: -3...3))
+        // Sit just behind the ball along its heading, with a slight perpendicular
+        // jitter only (no radial scatter) to keep the tail tight and aligned.
+        let jitter = CGFloat.random(in: -1.5...1.5)
+        let er = ball.effectiveRadius
+        let tx = ball.position.x - nx * er * 0.55 + (-ny) * jitter
+        let ty = ball.position.y - ny * er * 0.55 + nx * jitter
+        let size = max(1.5, er * 0.16)
+        let node = obtainParticleSprite(texture: Self.circleParticleTexture,
+                                        size: CGSize(width: size * 2, height: size * 2),
+                                        color: color)
+        node.alpha = 0.22
+        node.position = CGPoint(x: tx, y: ty)
         node.zPosition = 5
         shakeNode.addChild(node)
-        trailParticles.append(TrailParticle(node: node, lifetime: TimeInterval(CGFloat.random(in: 0.15...0.35))))
+        trailParticles.append(TrailParticle(node: node, lifetime: TimeInterval(CGFloat.random(in: 0.18...0.3))))
     }
 
     // MARK: Camera shake (Mac-oto inspired)
@@ -540,23 +775,25 @@ final class MatchScene: SKScene {
                                   UIColor(red: 0.5, green: 0.9, blue: 0.6, alpha: 1)]
         for _ in 0..<60 {
             let size = CGFloat.random(in: 4...10)
-            let shape: SKShapeNode
+            let node: SKSpriteNode
             if Bool.random() {
-                shape = SKShapeNode(rectOf: CGSize(width: size * 3, height: size))
+                node = obtainParticleSprite(texture: Self.squareParticleTexture,
+                                            size: CGSize(width: size * 3, height: size),
+                                            color: colors.randomElement() ?? .white)
             } else {
-                shape = SKShapeNode(circleOfRadius: size)
+                node = obtainParticleSprite(texture: Self.circleParticleTexture,
+                                            size: CGSize(width: size * 2, height: size * 2),
+                                            color: colors.randomElement() ?? .white)
             }
-            shape.fillColor = colors.randomElement() ?? .white
-            shape.strokeColor = .clear
-            shape.position = CGPoint(x: CGFloat.random(in: -120...120), y: CGFloat.random(in: 200...350))
-            shape.zPosition = 30
-            shape.zRotation = CGFloat.random(in: 0..<2 * .pi)
-            shape.userData = [
-                "vx": CGFloat.random(in: -200...200),
-                "vr": CGFloat.random(in: -6...6)
-            ] as NSMutableDictionary
-            shakeNode.addChild(shape)
-            confettiNodes.append(shape)
+            node.position = CGPoint(x: CGFloat.random(in: -120...120), y: CGFloat.random(in: 200...350))
+            node.zPosition = 30
+            node.zRotation = CGFloat.random(in: 0..<2 * .pi)
+            shakeNode.addChild(node)
+            confettiParticles.append(ConfettiParticle(
+                node: node,
+                vx: CGFloat.random(in: -200...200),
+                vr: CGFloat.random(in: -6...6)
+            ))
         }
     }
 }

@@ -11,9 +11,14 @@ import SwiftUI
 
 struct TeamBadgeView: View {
     let team: Team
-    /// Shield width in points. The overall view is a little taller (shield +
-    /// short code beneath it).
+    /// Shield width in points. When `showsCode` is on, the overall view is a
+    /// little taller (shield + short code beneath it).
     let size: CGFloat
+    /// Whether the short code is drawn beneath the shield. Contexts that already
+    /// label the team elsewhere (e.g. the matchup slot / pool card show the full
+    /// name) pass `false` for a clean shield-only medallion — this keeps the
+    /// shield the single, consistent frame element across those surfaces.
+    var showsCode: Bool = true
 
     private var shieldHeight: CGFloat { size * 1.12 }
     private var strokeWidth: CGFloat { max(1.5, size * 0.04) }
@@ -23,6 +28,9 @@ struct TeamBadgeView: View {
             ZStack {
                 ShieldShape()
                     .fill(team.primaryColor)
+                KitPatternShape(pattern: team.pattern)
+                    .fill(team.secondaryColor)
+                    .clipShape(ShieldShape())
                 ShieldShape()
                     .strokeBorder(team.secondaryColor, lineWidth: strokeWidth)
                 BadgeSymbolShape(shape: team.badgeShape)
@@ -32,9 +40,11 @@ struct TeamBadgeView: View {
             }
             .frame(width: size, height: shieldHeight)
 
-            Text(team.short)
-                .font(.badgeCode(size: size * 0.2))
-                .foregroundStyle(Palette.textSecondary)
+            if showsCode {
+                Text(team.short)
+                    .font(.badgeCode(size: size * 0.2))
+                    .foregroundStyle(Palette.textSecondary)
+            }
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(LocalizedStringKey(team.nameKey)))

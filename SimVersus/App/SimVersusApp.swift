@@ -6,6 +6,7 @@
 //  ("stadium night match").
 
 import SwiftUI
+import SwiftData
 
 @main
 struct SimVersusApp: App {
@@ -17,5 +18,8 @@ struct SimVersusApp: App {
                 .environmentObject(appState)
                 .preferredColorScheme(.dark)
         }
+        // Persists user-created teams (Phase 2a). The container is injected into
+        // the environment so `@Query` / `modelContext` work throughout the app.
+        .modelContainer(for: CustomTeam.self)
     }
 }

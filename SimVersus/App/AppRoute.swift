@@ -12,6 +12,7 @@ import Foundation
 enum AppRoute: Hashable {
     case home
     case teamSelect
+    case teamCreator
     case match(MatchConfig)
     case result(MatchResult, MatchConfig)
 }
