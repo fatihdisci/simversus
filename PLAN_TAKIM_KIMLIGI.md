@@ -171,17 +171,24 @@ hem top-top hem top-duvar) motorda ZATEN var. Bu aşama onları ayarlar:
 
 ---
 
-## AŞAMA 4 — Power-up'lar
+## AŞAMA 4 — Power-up'lar (KODLANDI ✅ — Xcode doğrulaması bekliyor)
 
 **Hedef:** Arenada periyodik beliren, deterministik (seed'li) geçici efektler;
 top değince süreli modifier.
 
-**Tasarım:**
-- Efektler: **büyüme** (radius ×1.3), **küçülme** (×0.75), **hızlanma**
-  (targetSpeed ×1.3), **yavaşlama** (×0.7). Süre ~4–6 sn.
-- `Disc`'e geçici modifier + kalan süre alanları; süre bitince baz stata döner.
-- Spawn: seed'li RNG ile konum/zaman → determinizm korunur.
-- Görsel: arenada küçük ikon, alınınca kısa efekt + HUD ipucu.
+**Uygulandı:**
+- 4 efekt (denge için 2 buff + 2 debuff, ortalama gol etkisi ~nötr): **büyüme**
+  (×1.25), **küçülme** (×0.80), **hızlanma** (targetSpeed ×1.25), **yavaşlama**
+  (×0.80). Süre 5 sn.
+- `Disc`'e radiusScale/speedScale/powerUpRemaining/activePowerUp + effectiveRadius/
+  effectiveTargetSpeed. Fizik (çarpışma, duvar/gol, hız norm.) efektif değerleri
+  kullanır. Süre bitince/gol reset'inde baz değere döner.
+- Spawn: seed'li RNG ile zaman (8–15 sn aralık) + konum (iç %55) + tip. Aynı anda
+  en çok 2 pickup. Determinizm korunur (id'ler seeded sayaç, UUID değil).
+- Görsel: arenada renk+glyph'li nabız atan ikon (yeşil+/mavi−/sarı»/mor«); top
+  büyüyünce/küçülünce node ölçeklenir; aktif efektte topun etrafında renkli halka.
+- `MatchConfig.powerUpsEnabled` (default true; turnuva/ranked için kapatılabilir,
+  Anayasa §4.6). PowerUpTests: disabled=boş, enabled=spawn, determinizm, etki.
 
 **Kabul kriterleri:**
 - [ ] Determinizm korunuyor (aynı seed = aynı power-up akışı).

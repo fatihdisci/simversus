@@ -65,6 +65,11 @@ final class MatchScene: SKScene {
     private var awayBallNode = SKSpriteNode()
     private var homeShadowNode = SKShapeNode()
     private var awayShadowNode = SKShapeNode()
+    private var homeEffectRing = SKShapeNode()
+    private var awayEffectRing = SKShapeNode()
+
+    // Power-up pickup nodes, keyed by the simulation's power-up id.
+    private var powerUpNodes: [Int: SKNode] = [:]
 
     // Live particles + shared sprite pool (recycled nodes, capped size).
     private var collisionParticles: [CollisionParticle] = []
@@ -131,6 +136,22 @@ final class MatchScene: SKScene {
         awayShadowNode = makeShadowNode(radius: awayTeam.stats.radius)
         shakeNode.addChild(homeShadowNode)
         shakeNode.addChild(awayShadowNode)
+
+        // Active power-up rings (hidden until a ball holds an effect).
+        homeEffectRing = makeEffectRing(radius: homeTeam.stats.radius + 5)
+        awayEffectRing = makeEffectRing(radius: awayTeam.stats.radius + 5)
+        shakeNode.addChild(homeEffectRing)
+        shakeNode.addChild(awayEffectRing)
+    }
+
+    private func makeEffectRing(radius: CGFloat) -> SKShapeNode {
+        let node = SKShapeNode(circleOfRadius: radius)
+        node.fillColor = .clear
+        node.lineWidth = 2.5
+        node.strokeColor = .white
+        node.zPosition = 9
+        node.isHidden = true
+        return node
     }
 
     private func makeShadowNode(radius: CGFloat) -> SKShapeNode {
@@ -449,6 +470,7 @@ final class MatchScene: SKScene {
         updateCameraShake(dt: CGFloat(delta))
 
         renderState()
+        syncPowerUps()
         publishEvents()
 
         if simulation.isFinished, let result = simulation.result() {
@@ -459,21 +481,100 @@ final class MatchScene: SKScene {
     }
 
     private func renderState() {
-        homeBallNode.position = simulation.homeBall.position
-        homeBallNode.zRotation = simulation.homeBall.rotation
-        awayBallNode.position = simulation.awayBall.position
-        awayBallNode.zRotation = simulation.awayBall.rotation
+        let home = simulation.homeBall
+        let away = simulation.awayBall
+
+        homeBallNode.position = home.position
+        homeBallNode.zRotation = home.rotation
+        homeBallNode.setScale(home.radiusScale) // grow/shrink power-up
+        awayBallNode.position = away.position
+        awayBallNode.zRotation = away.rotation
+        awayBallNode.setScale(away.radiusScale)
         arenaNode.zRotation = simulation.arenaRotation
 
         // Ball shadows (offset slightly below each ball, scaled to its radius).
-        homeShadowNode.position = CGPoint(x: simulation.homeBall.position.x,
-                                          y: simulation.homeBall.position.y + simulation.homeBall.radius * 0.78)
-        awayShadowNode.position = CGPoint(x: simulation.awayBall.position.x,
-                                          y: simulation.awayBall.position.y + simulation.awayBall.radius * 0.78)
+        homeShadowNode.position = CGPoint(x: home.position.x, y: home.position.y + home.effectiveRadius * 0.78)
+        homeShadowNode.setScale(home.radiusScale)
+        awayShadowNode.position = CGPoint(x: away.position.x, y: away.position.y + away.effectiveRadius * 0.78)
+        awayShadowNode.setScale(away.radiusScale)
+
+        // Active power-up rings track the ball and take the effect's colour.
+        updateEffectRing(homeEffectRing, ball: home)
+        updateEffectRing(awayEffectRing, ball: away)
 
         // Spawn ball trail particles.
-        spawnTrail(for: simulation.homeBall, color: UIColor(homeTeam.primaryColor))
-        spawnTrail(for: simulation.awayBall, color: UIColor(awayTeam.primaryColor))
+        spawnTrail(for: home, color: UIColor(homeTeam.primaryColor))
+        spawnTrail(for: away, color: UIColor(awayTeam.primaryColor))
+    }
+
+    private func updateEffectRing(_ ring: SKShapeNode, ball: Disc) {
+        guard let kind = ball.activePowerUp else { ring.isHidden = true; return }
+        ring.isHidden = false
+        ring.position = ball.position
+        ring.setScale(ball.radiusScale)
+        ring.strokeColor = Self.powerUpStyle(kind).color
+    }
+
+    // MARK: Power-up pickups
+
+    /// Reconciles the on-screen pickup nodes with the simulation's live list:
+    /// removes collected ones, adds newly spawned ones.
+    private func syncPowerUps() {
+        let current = simulation.activePowerUps
+        let liveIDs = Set(current.map(\.id))
+        // Snapshot keys first — never mutate the dictionary while iterating it.
+        for id in Array(powerUpNodes.keys) where !liveIDs.contains(id) {
+            powerUpNodes[id]?.removeFromParent()
+            powerUpNodes[id] = nil
+        }
+        for pu in current where powerUpNodes[pu.id] == nil {
+            let node = makePowerUpNode(kind: pu.kind)
+            node.position = pu.position
+            shakeNode.addChild(node)
+            powerUpNodes[pu.id] = node
+        }
+    }
+
+    private func makePowerUpNode(kind: PowerUpKind) -> SKNode {
+        let style = Self.powerUpStyle(kind)
+        let r = PhysicsConstants.powerUpRadius
+        let container = SKNode()
+        container.zPosition = 8
+
+        let glow = SKShapeNode(circleOfRadius: r + 3)
+        glow.fillColor = style.color.withAlphaComponent(0.20)
+        glow.strokeColor = .clear
+        container.addChild(glow)
+
+        let disc = SKShapeNode(circleOfRadius: r)
+        disc.fillColor = style.color.withAlphaComponent(0.9)
+        disc.strokeColor = .white
+        disc.lineWidth = 1.5
+        container.addChild(disc)
+
+        let label = SKLabelNode(text: style.glyph)
+        label.fontName = "AvenirNext-Bold"
+        label.fontSize = r * 1.2
+        label.fontColor = .white
+        label.verticalAlignmentMode = .center
+        label.horizontalAlignmentMode = .center
+        container.addChild(label)
+
+        // Gentle pulse so pickups read as "collectable".
+        container.run(.repeatForever(.sequence([
+            .scale(to: 1.12, duration: 0.6),
+            .scale(to: 1.0, duration: 0.6)
+        ])))
+        return container
+    }
+
+    private static func powerUpStyle(_ kind: PowerUpKind) -> (color: UIColor, glyph: String) {
+        switch kind {
+        case .grow:     return (UIColor(red: 0.22, green: 0.85, blue: 0.45, alpha: 1), "+")
+        case .shrink:   return (UIColor(red: 0.20, green: 0.75, blue: 0.95, alpha: 1), "-")
+        case .speedUp:  return (UIColor(red: 1.00, green: 0.82, blue: 0.20, alpha: 1), "»")
+        case .slowDown: return (UIColor(red: 0.70, green: 0.45, blue: 0.95, alpha: 1), "«")
+        }
     }
 
     private func publishEvents() {
@@ -596,9 +697,10 @@ final class MatchScene: SKScene {
         // Sit just behind the ball along its heading, with a slight perpendicular
         // jitter only (no radial scatter) to keep the tail tight and aligned.
         let jitter = CGFloat.random(in: -1.5...1.5)
-        let tx = ball.position.x - nx * ball.radius * 0.55 + (-ny) * jitter
-        let ty = ball.position.y - ny * ball.radius * 0.55 + nx * jitter
-        let size = max(1.5, ball.radius * 0.16)
+        let er = ball.effectiveRadius
+        let tx = ball.position.x - nx * er * 0.55 + (-ny) * jitter
+        let ty = ball.position.y - ny * er * 0.55 + nx * jitter
+        let size = max(1.5, er * 0.16)
         let node = obtainParticleSprite(texture: Self.circleParticleTexture,
                                         size: CGSize(width: size * 2, height: size * 2),
                                         color: color)

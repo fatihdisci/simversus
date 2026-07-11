@@ -94,6 +94,25 @@ enum PhysicsConstants {
     /// Range of possible rotation speeds when direction changes (rad/s).
     static let rotationSpeedRange: ClosedRange<CGFloat> = 0.5...1.05
 
+    // MARK: Power-ups (periodic seeded pickups — temporary ball modifiers)
+
+    /// How long a collected power-up stays active on a ball (seconds).
+    static let powerUpDuration: TimeInterval = 5
+    /// Seeded interval between power-up spawns (seconds).
+    static let powerUpSpawnIntervalRange: ClosedRange<CGFloat> = 8...15
+    /// Most power-ups on the pitch at once.
+    static let maxActivePowerUps: Int = 2
+    /// Pickup collision radius (a ball collects it within its own radius + this).
+    static let powerUpRadius: CGFloat = 15
+    /// Power-ups spawn within this fraction of the arena radius (reachable, inner).
+    static let powerUpSpawnInnerFraction: CGFloat = 0.55
+    /// Radius multiplier for the grow / shrink pickups.
+    static let powerUpGrowScale: CGFloat = 1.25
+    static let powerUpShrinkScale: CGFloat = 0.80
+    /// Target-speed multiplier for the speed-up / slow-down pickups.
+    static let powerUpSpeedUpScale: CGFloat = 1.25
+    static let powerUpSlowScale: CGFloat = 0.80
+
     // MARK: Match flow
 
     /// Real seconds of play → shown as 90 minutes (1 s = 1 min).
