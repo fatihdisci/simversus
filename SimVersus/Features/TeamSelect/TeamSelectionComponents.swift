@@ -79,7 +79,10 @@ struct TeamPoolCard: View {
         }
         .buttonStyle(.plain)
         .disabled(isDisabled)
-        .opacity(isDisabled ? 0.32 : 1)
+        // Only dim a card that is genuinely unavailable (locked, unpicked). A
+        // card already picked for the other side keeps its accent border + pip
+        // at full opacity instead of being crushed to an unreadable ghost.
+        .opacity(isDisabled && selection == nil ? 0.45 : 1)
         .accessibilityHint(selection == nil ? Text("") : Text("teamselect.selected"))
     }
 }

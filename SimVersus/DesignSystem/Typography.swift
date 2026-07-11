@@ -43,6 +43,12 @@ extension Font {
     /// Label / short code — SF Mono, 13pt semibold. Badges, tags, short codes.
     static let label = Font.system(size: 13, weight: .semibold, design: .monospaced)
 
+    /// Live match minute ("19'"). Rounded to match the HUD, with monospaced
+    /// digits so the number never jumps — but a proportional apostrophe, so the
+    /// mark hugs the digits instead of sitting in its own mono cell.
+    static let hudMinute = Font.system(size: 13, weight: .semibold, design: .rounded)
+        .monospacedDigit()
+
     /// Badge short-code — SF Mono semibold, sized to the badge (`TeamBadgeView`).
     /// Scales with the badge so it stays crisp and proportional at any size.
     static func badgeCode(size: CGFloat) -> Font {

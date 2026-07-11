@@ -116,7 +116,7 @@ struct TeamCreatorView: View {
                 }
                 .padding(.horizontal, Spacing.l)
                 .padding(.top, Spacing.s)
-                .padding(.bottom, 112)
+                .padding(.bottom, Spacing.l)
             }
             .scrollIndicators(.hidden)
         }
@@ -140,16 +140,18 @@ struct TeamCreatorView: View {
                     .font(.headline)
                     .foregroundStyle(Palette.textPrimary)
                     .lineLimit(1)
-                Text(model.previewTeam.short)
-                    .font(.label)
-                    .foregroundStyle(Palette.textSecondary)
             }
             Spacer()
-            HStack(spacing: -5) {
-                Circle().fill(Color(hex: model.primaryHex)).frame(width: 24, height: 24)
-                Circle().fill(Color(hex: model.secondaryHex)).frame(width: 24, height: 24)
-                    .overlay(Circle().stroke(Palette.borderStrong))
+            // Round kit token — a preview of how this team's ball looks in the
+            // arena (primary + secondary + pattern), distinct from the shield.
+            ZStack {
+                Circle().fill(Color(hex: model.primaryHex))
+                KitPatternShape(pattern: model.pattern)
+                    .fill(Color(hex: model.secondaryHex))
+                    .clipShape(Circle())
+                Circle().stroke(Palette.borderStrong, lineWidth: 1)
             }
+            .frame(width: 34, height: 34)
         }
         .padding(.horizontal, Spacing.l)
         .padding(.vertical, Spacing.s)
@@ -333,6 +335,11 @@ struct TeamCreatorView: View {
                 Label("creator.slot.locked", systemImage: "lock.fill")
                     .font(.label)
                     .foregroundStyle(Palette.textSecondary)
+            } else if !model.canSave {
+                Text("creator.save.hint")
+                    .font(.label)
+                    .foregroundStyle(Palette.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
             }
         }
         .padding(.horizontal, Spacing.l)

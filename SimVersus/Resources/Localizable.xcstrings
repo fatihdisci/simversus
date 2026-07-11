@@ -280,6 +280,23 @@
         }
       }
     },
+    "creator.save.hint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter a team name and spend all 9 points to save"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kaydetmek için takım adını gir ve 9 puanı tamamen dağıt"
+          }
+        }
+      }
+    },
     "creator.section.appearance" : {
       "extractionState" : "manual",
       "localizations" : {

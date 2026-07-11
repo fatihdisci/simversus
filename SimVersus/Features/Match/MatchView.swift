@@ -94,6 +94,14 @@ struct MatchView: View {
                             model.togglePause()
                     }
                 }
+                .background(
+                    // Report the HUD's bottom edge (in screen space) so the
+                    // scene can centre the arena in the space beneath it.
+                    GeometryReader { geo in
+                        Color.clear.preference(key: HUDBottomKey.self,
+                                               value: geo.frame(in: .global).maxY)
+                    }
+                )
                 Spacer()
             }
             .padding(.horizontal, Spacing.m)
@@ -121,6 +129,10 @@ struct MatchView: View {
         }
         .onChange(of: showExitConfirmation) { _, isPresented in
             if !isPresented { restoreStateAfterExitPrompt() }
+        }
+        .onPreferenceChange(HUDBottomKey.self) { bottom in
+            // Add a small gap so the arena doesn't butt against the scoreboard.
+            model.scene.topReservedInset = bottom + Spacing.m
         }
     }
 
@@ -170,6 +182,15 @@ struct MatchView: View {
         onExit()
     }
 
+}
+
+/// Carries the HUD's bottom edge (screen-space Y) up to the match view so the
+/// scene can reserve that space and centre the arena beneath it.
+private struct HUDBottomKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
 }
 
 #Preview {

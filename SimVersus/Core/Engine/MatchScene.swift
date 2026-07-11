@@ -94,6 +94,16 @@ final class MatchScene: SKScene {
     private let wallStrokeWidth: CGFloat = 3
     private let centerRingFraction: CGFloat = 0.18
 
+    /// Points reserved by the HUD at the top of the screen. The arena is
+    /// centred in the space *below* this inset (not the whole screen), so the
+    /// scoreboard no longer leaves dead space above and a large gap below.
+    var topReservedInset: CGFloat = 0 {
+        didSet {
+            guard abs(oldValue - topReservedInset) > 0.5 else { return }
+            layoutWorld()
+        }
+    }
+
     // Track last processed collision events to avoid duplicates.
     private var processedCollisionCount: Int = 0
 
@@ -443,17 +453,26 @@ final class MatchScene: SKScene {
     }
 
     private func layoutWorld() {
-        guard size.width > 0 else { return }
-        // The goal extends beyond the arena ring. Reserve a small screen gutter
-        // for its frame/net at every rotation, instead of letting it clip at the
-        // left/right edge when the rotating opening points sideways.
+        guard size.width > 0, size.height > 0 else { return }
+        // The goal extends beyond the arena ring and sweeps around as the arena
+        // rotates, so its outer radius bounds the arena in every direction.
         let baseScale = PhysicsConstants.arenaRenderWidthFraction * size.width / PhysicsConstants.arenaRadius
         let goalFrontRadius = cos(PhysicsConstants.gapWidth / 2) * PhysicsConstants.arenaRadius
         let goalOuterRadius = goalFrontRadius + PhysicsConstants.exitMargin + 8
+
+        // Fit within both the screen width and the height left below the HUD,
+        // reserving a small gutter for the goal frame/net at any rotation.
         let horizontalGutter: CGFloat = 16
-        let fittingScale = max(0, (size.width / 2 - horizontalGutter) / goalOuterRadius)
-        worldNode.setScale(min(baseScale, fittingScale))
-        worldNode.position = .zero
+        let verticalGutter: CGFloat = 16
+        let availableHeight = max(0, size.height - topReservedInset)
+        let horizontalFit = (size.width / 2 - horizontalGutter) / goalOuterRadius
+        let verticalFit = (availableHeight / 2 - verticalGutter) / goalOuterRadius
+        worldNode.setScale(max(0, min(baseScale, horizontalFit, verticalFit)))
+
+        // anchorPoint is (0.5, 0.5): scene origin sits at screen centre and +y
+        // points up. Shift the arena down by half the reserved inset so it is
+        // centred in the region below the HUD.
+        worldNode.position = CGPoint(x: 0, y: -topReservedInset / 2)
     }
 
     // MARK: Step & render

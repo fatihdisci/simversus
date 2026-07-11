@@ -21,7 +21,7 @@ struct BroadcastScoreboard: View {
 
             HStack(spacing: Spacing.s) {
                 Text(verbatim: "\(hud.minute)'")
-                    .font(.label)
+                    .font(.hudMinute)
                     .foregroundStyle(Palette.accent)
                     .frame(width: 34, alignment: .leading)
                 GeometryReader { proxy in
@@ -44,11 +44,19 @@ struct BroadcastScoreboard: View {
         .padding(.horizontal, 12)
         .padding(.vertical, Spacing.s)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
+        // Consistent hairline first, then a subtle team-colour tint on each
+        // edge that fades to clear in the middle. The base stroke keeps both
+        // sides visible even when a team colour is dark (e.g. navy), so the
+        // card never looks like it has a single glowing edge.
         .overlay(
             RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
-                .stroke(LinearGradient(colors: [homeTeam.primaryColor.opacity(0.7),
-                                                 Palette.borderSubtle,
-                                                 awayTeam.primaryColor.opacity(0.7)],
+                .stroke(Palette.borderStrong, lineWidth: 1)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
+                .stroke(LinearGradient(colors: [homeTeam.primaryColor.opacity(0.45),
+                                                 .clear,
+                                                 awayTeam.primaryColor.opacity(0.45)],
                                        startPoint: .leading,
                                        endPoint: .trailing), lineWidth: 1)
         )

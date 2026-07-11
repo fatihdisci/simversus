@@ -93,17 +93,16 @@ struct ArenaButtonStyle: ButtonStyle {
                     .stroke(border, lineWidth: 1)
             )
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
-            .opacity(isEnabled ? 1 : 0.58)
             .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
     }
 
     private var foreground: Color {
-        guard isEnabled else { return Palette.textTertiary }
+        guard isEnabled else { return Palette.textSecondary }
         return kind == .primary ? Palette.bgDeep : Palette.textPrimary
     }
 
     private func background(_ pressed: Bool) -> Color {
-        guard isEnabled else { return Palette.bgElevatedStrong }
+        guard isEnabled else { return Palette.bgElevated }
         switch kind {
         case .primary: return Palette.accent.opacity(pressed ? 0.78 : 1)
         case .secondary: return Palette.bgElevatedStrong.opacity(pressed ? 0.72 : 1)

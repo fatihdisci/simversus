@@ -5,7 +5,6 @@ import SwiftUI
 
 struct HomeView: View {
     let onPlay: () -> Void
-    private let showcaseTeams = Array(TeamStore().mvpTeams.prefix(2))
 
     var body: some View {
         ZStack {
@@ -37,40 +36,12 @@ struct HomeView: View {
                     .textCase(.uppercase)
             }
             Spacer()
-            Text("home.duration.short")
-                .font(.label)
-                .foregroundStyle(Palette.accent)
-                .padding(.horizontal, Spacing.s)
-                .padding(.vertical, Spacing.xs)
-                .background(Palette.accent.opacity(0.1), in: Capsule())
         }
     }
 
     private var hero: some View {
         VStack(spacing: Spacing.l) {
-            ZStack {
-                Circle()
-                    .stroke(Palette.energy.opacity(0.22), lineWidth: 1)
-                    .frame(width: 246, height: 246)
-                Circle()
-                    .stroke(Palette.accent.opacity(0.12),
-                            style: StrokeStyle(lineWidth: 12, dash: [2, 14]))
-                    .frame(width: 198, height: 198)
-
-                if showcaseTeams.count == 2 {
-                    TeamOrbView(team: showcaseTeams[0], size: 76)
-                        .offset(x: -62, y: 38)
-                    TeamOrbView(team: showcaseTeams[1], size: 68)
-                        .offset(x: 58, y: -42)
-                }
-
-                Text("common.versus")
-                    .font(.label)
-                    .foregroundStyle(Palette.textSecondary)
-                    .padding(Spacing.s)
-                    .background(Palette.bgElevatedStrong, in: Circle())
-                    .overlay(Circle().stroke(Palette.borderStrong))
-            }
+            AmbientArenaView()
 
             VStack(spacing: Spacing.s) {
                 Text("home.title")
@@ -92,6 +63,8 @@ struct HomeView: View {
                     Label("home.meta.spectator", systemImage: "eye.fill")
                     Spacer()
                     Label("home.meta.physics", systemImage: "circle.hexagongrid.fill")
+                    Spacer()
+                    Label("home.duration.short", systemImage: "timer")
                 }
                 .font(.caption)
                 .foregroundStyle(Palette.textSecondary)

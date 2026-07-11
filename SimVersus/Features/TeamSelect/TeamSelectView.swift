@@ -14,6 +14,7 @@ struct TeamSelectView: View {
     let onStart: (_ home: Team, _ away: Team) -> Void
 
     @Query(sort: \CustomTeam.createdAt) private var customTeams: [CustomTeam]
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var matchup = TeamMatchup()
     @State private var activeSide: MatchupSelectionSide = .home
 
@@ -34,7 +35,7 @@ struct TeamSelectView: View {
                 }
                 .padding(.horizontal, Spacing.l)
                 .padding(.top, Spacing.s)
-                .padding(.bottom, 112)
+                .padding(.bottom, Spacing.l)
             }
             .scrollIndicators(.hidden)
         }
@@ -84,6 +85,7 @@ struct TeamSelectView: View {
                             .fill(matchup.isReady ? Palette.accent : Palette.textTertiary)
                             .frame(width: 6, height: 6)
                             .shadow(color: matchup.isReady ? Palette.accent : .clear, radius: 5)
+                            .modifier(PulseEffect(active: matchup.isReady && !reduceMotion))
                     }
                     .frame(width: 40)
                     MatchupSlotView(side: .away,
@@ -159,6 +161,31 @@ struct TeamSelectView: View {
             if !wasSelected, matchup.home != nil { activeSide = .away }
         case .away:
             matchup.selectAway(team)
+        }
+    }
+}
+
+/// A gentle, indefinite scale pulse used to draw the eye to the readiness dot
+/// once both slots are filled. Settles back to rest when `active` turns off and
+/// never animates when Reduce Motion is on (the caller gates `active`).
+private struct PulseEffect: ViewModifier {
+    let active: Bool
+    @State private var expanded = false
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(expanded ? 1.35 : 1)
+            .onAppear { sync() }
+            .onChange(of: active) { _, _ in sync() }
+    }
+
+    private func sync() {
+        if active {
+            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+                expanded = true
+            }
+        } else {
+            withAnimation(.easeOut(duration: 0.2)) { expanded = false }
         }
     }
 }
