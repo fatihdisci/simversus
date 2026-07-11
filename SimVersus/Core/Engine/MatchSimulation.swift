@@ -39,6 +39,8 @@ struct Disc {
     let mass: CGFloat
     let restitution: CGFloat
     let linearDamping: CGFloat
+    /// Per-team speed this ball is normalized toward (from `TeamStats.speed`).
+    let targetSpeed: CGFloat
     /// Cosmetic: current rotation of the disc (for badge texture spin).
     var angularVelocity: CGFloat = 0
     var rotation: CGFloat = 0
@@ -99,14 +101,20 @@ final class MatchSimulation {
         self.config = config
         self.rng = SeededRandomNumberGenerator(seed: config.seed)
 
+        // Each ball's physical body comes from its team's stats (weight → mass,
+        // size → radius, speed → targetSpeed). Restitution/damping stay shared.
+        let homeStats = config.homeTeam.stats
+        let awayStats = config.awayTeam.stats
         self.homeBall = Disc(position: .zero, velocity: .zero,
-                             radius: PhysicsConstants.ballRadius, mass: PhysicsConstants.ballMass,
+                             radius: homeStats.radius, mass: homeStats.mass,
                              restitution: PhysicsConstants.ballToBallRestitution,
-                             linearDamping: PhysicsConstants.ballLinearDamping)
+                             linearDamping: PhysicsConstants.ballLinearDamping,
+                             targetSpeed: homeStats.targetSpeed)
         self.awayBall = Disc(position: .zero, velocity: .zero,
-                             radius: PhysicsConstants.ballRadius, mass: PhysicsConstants.ballMass,
+                             radius: awayStats.radius, mass: awayStats.mass,
                              restitution: PhysicsConstants.ballToBallRestitution,
-                             linearDamping: PhysicsConstants.ballLinearDamping)
+                             linearDamping: PhysicsConstants.ballLinearDamping,
+                             targetSpeed: awayStats.targetSpeed)
 
         self.homeBoostTimer = Self.nextBoostInterval(using: &rng)
         self.awayBoostTimer = Self.nextBoostInterval(using: &rng)
@@ -272,7 +280,7 @@ final class MatchSimulation {
     private func normalizeBallSpeed(_ ball: inout Disc) {
         let speed = ball.velocity.length
         guard speed > 0.01 else { return }
-        let target = PhysicsConstants.targetBallSpeed
+        let target = ball.targetSpeed
         let blend = PhysicsConstants.speedNormalizationBlend
         let newSpeed = speed + (target - speed) * blend
         ball.velocity = ball.velocity.normalized * newSpeed
@@ -422,11 +430,11 @@ final class MatchSimulation {
     }
 
     private func resetFormation() {
-        // Place balls symmetrically near centre, offset slightly.
-        homeBall.position = CGPoint(x: -PhysicsConstants.ballRadius * 0.8, y: 0)
+        // Place balls symmetrically near centre, offset slightly by their radius.
+        homeBall.position = CGPoint(x: -homeBall.radius * 0.8, y: 0)
         homeBall.velocity = .zero
         homeBall.rotation = 0
-        awayBall.position = CGPoint(x: PhysicsConstants.ballRadius * 0.8, y: 0)
+        awayBall.position = CGPoint(x: awayBall.radius * 0.8, y: 0)
         awayBall.velocity = .zero
         awayBall.rotation = 0
     }

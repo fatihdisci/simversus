@@ -126,16 +126,16 @@ final class MatchScene: SKScene {
         shakeNode.addChild(homeBallNode)
         shakeNode.addChild(awayBallNode)
 
-        // Ball shadows (ellipses under balls).
-        homeShadowNode = makeShadowNode()
-        awayShadowNode = makeShadowNode()
+        // Ball shadows (ellipses under balls) — sized to each team's radius.
+        homeShadowNode = makeShadowNode(radius: homeTeam.stats.radius)
+        awayShadowNode = makeShadowNode(radius: awayTeam.stats.radius)
         shakeNode.addChild(homeShadowNode)
         shakeNode.addChild(awayShadowNode)
     }
 
-    private func makeShadowNode() -> SKShapeNode {
-        let w = PhysicsConstants.ballRadius * 1.45 * 2
-        let h = max(6, PhysicsConstants.ballRadius * 0.42) * 2
+    private func makeShadowNode(radius: CGFloat) -> SKShapeNode {
+        let w = radius * 1.45 * 2
+        let h = max(6, radius * 0.42) * 2
         let node = SKShapeNode(ellipseOf: CGSize(width: w, height: h))
         node.fillColor = UIColor.black.withAlphaComponent(0.18)
         node.strokeColor = .clear
@@ -145,7 +145,7 @@ final class MatchScene: SKScene {
 
     /// Creates a circular ball sprite with the team badge symbol.
     private func makeBallNode(team: Team) -> SKSpriteNode {
-        let diameter = PhysicsConstants.ballRadius * 2
+        let diameter = team.stats.radius * 2
         let size = CGSize(width: diameter, height: diameter)
 
         let renderer = UIGraphicsImageRenderer(size: size)
@@ -451,10 +451,11 @@ final class MatchScene: SKScene {
         awayBallNode.zRotation = simulation.awayBall.rotation
         arenaNode.zRotation = simulation.arenaRotation
 
-        // Ball shadows (offset slightly below each ball).
-        let shadowOffY: CGFloat = PhysicsConstants.ballRadius * 0.78
-        homeShadowNode.position = CGPoint(x: simulation.homeBall.position.x, y: simulation.homeBall.position.y + shadowOffY)
-        awayShadowNode.position = CGPoint(x: simulation.awayBall.position.x, y: simulation.awayBall.position.y + shadowOffY)
+        // Ball shadows (offset slightly below each ball, scaled to its radius).
+        homeShadowNode.position = CGPoint(x: simulation.homeBall.position.x,
+                                          y: simulation.homeBall.position.y + simulation.homeBall.radius * 0.78)
+        awayShadowNode.position = CGPoint(x: simulation.awayBall.position.x,
+                                          y: simulation.awayBall.position.y + simulation.awayBall.radius * 0.78)
 
         // Spawn ball trail particles.
         spawnTrail(for: simulation.homeBall, color: UIColor(homeTeam.primaryColor))
@@ -576,8 +577,8 @@ final class MatchScene: SKScene {
         guard speed > 80, CGFloat.random(in: 0...1) < 0.4 else { return }
         let nx = ball.velocity.x / speed
         let ny = ball.velocity.y / speed
-        let tx = ball.position.x - nx * PhysicsConstants.ballRadius * 0.7
-        let ty = ball.position.y - ny * PhysicsConstants.ballRadius * 0.7
+        let tx = ball.position.x - nx * ball.radius * 0.7
+        let ty = ball.position.y - ny * ball.radius * 0.7
         let size = CGFloat.random(in: 1.5...4)
         let node = obtainParticleSprite(texture: Self.circleParticleTexture,
                                         size: CGSize(width: size * 2, height: size * 2),
