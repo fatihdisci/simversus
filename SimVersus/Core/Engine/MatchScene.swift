@@ -505,17 +505,17 @@ final class MatchScene: SKScene {
         processedCollisionCount = events.count
 
         for event in newEvents {
-            let desired = event.isBallBall ? 30 : 15
-            // Budget: never let simultaneous bursts pile up unbounded node counts.
+            // Subtle: a light spark, not a burst. Fewer, smaller, softer than before.
+            let desired = event.isBallBall ? 12 : 6
             let count = min(desired, maxLiveCollisionParticles - collisionParticles.count)
             guard count > 0 else { continue }
             let colors: [UIColor] = event.isBallBall
-                ? [.white, UIColor(red: 1, green: 0.9, blue: 0.4, alpha: 1), UIColor(red: 0, green: 0.9, blue: 1, alpha: 1), UIColor(red: 1, green: 0.4, blue: 0.4, alpha: 1)]
-                : [.white, UIColor(red: 0, green: 0.7, blue: 1, alpha: 1), UIColor(red: 0.6, green: 0.9, blue: 1, alpha: 1)]
+                ? [.white, UIColor(red: 1, green: 0.92, blue: 0.6, alpha: 1), UIColor(red: 0.6, green: 0.9, blue: 1, alpha: 1)]
+                : [.white, UIColor(red: 0.7, green: 0.9, blue: 1, alpha: 1)]
             for _ in 0..<count {
                 let angle = CGFloat.random(in: 0..<2 * .pi)
-                let speed = CGFloat.random(in: 80...400) * event.intensity
-                let radius = max(1, CGFloat.random(in: 2...6) * event.intensity)
+                let speed = CGFloat.random(in: 50...220) * event.intensity
+                let radius = max(1, CGFloat.random(in: 1.2...3.5) * event.intensity)
                 let node = obtainParticleSprite(texture: Self.circleParticleTexture,
                                                 size: CGSize(width: radius * 2, height: radius * 2),
                                                 color: colors.randomElement() ?? .white)
@@ -525,7 +525,7 @@ final class MatchScene: SKScene {
                 collisionParticles.append(CollisionParticle(
                     node: node,
                     velocity: CGPoint(x: cos(angle) * speed, y: sin(angle) * speed),
-                    lifetime: TimeInterval(CGFloat.random(in: 0.3...0.7))
+                    lifetime: TimeInterval(CGFloat.random(in: 0.22...0.45))
                 ))
             }
         }
@@ -547,7 +547,7 @@ final class MatchScene: SKScene {
             p.node.position.x += p.velocity.x * dt
             p.node.position.y += p.velocity.y * dt
             let progress = CGFloat(p.age / p.lifetime)
-            p.node.alpha = 1 - progress
+            p.node.alpha = 0.9 * (1 - progress)
             p.node.setScale(1 - progress * 0.5)
             collisionParticles[write] = p
             write += 1
@@ -561,8 +561,9 @@ final class MatchScene: SKScene {
             p.age += TimeInterval(dt)
             if p.age >= p.lifetime { recycleParticleSprite(p.node); continue }
             let progress = CGFloat(p.age / p.lifetime)
-            p.node.alpha = 0.18 * (1 - progress)
-            p.node.setScale(1 + progress * 0.3)
+            // Fade + taper so the tail thins to nothing behind the ball.
+            p.node.alpha = 0.22 * (1 - progress)
+            p.node.setScale(1 - progress * 0.4)
             trailParticles[write] = p
             write += 1
         }
@@ -583,25 +584,29 @@ final class MatchScene: SKScene {
         confettiParticles.removeLast(confettiParticles.count - write)
     }
 
-    // MARK: Ball trail (Mac-oto inspired — subtle white dust)
+    // MARK: Ball trail (thin, team-tinted tail that thins out behind the ball)
 
     private func spawnTrail(for ball: Disc, color: UIColor) {
-        // Only spawn trail when moving fast enough and randomly (not every frame).
         let speed = hypot(ball.velocity.x, ball.velocity.y)
-        guard speed > 80, CGFloat.random(in: 0...1) < 0.4 else { return }
+        // Fairly continuous while moving, but each dot is tiny and short-lived so
+        // the result reads as one thin tail rather than a dust cloud.
+        guard speed > 70, CGFloat.random(in: 0...1) < 0.6 else { return }
         let nx = ball.velocity.x / speed
         let ny = ball.velocity.y / speed
-        let tx = ball.position.x - nx * ball.radius * 0.7
-        let ty = ball.position.y - ny * ball.radius * 0.7
-        let size = CGFloat.random(in: 1.5...4)
+        // Sit just behind the ball along its heading, with a slight perpendicular
+        // jitter only (no radial scatter) to keep the tail tight and aligned.
+        let jitter = CGFloat.random(in: -1.5...1.5)
+        let tx = ball.position.x - nx * ball.radius * 0.55 + (-ny) * jitter
+        let ty = ball.position.y - ny * ball.radius * 0.55 + nx * jitter
+        let size = max(1.5, ball.radius * 0.16)
         let node = obtainParticleSprite(texture: Self.circleParticleTexture,
                                         size: CGSize(width: size * 2, height: size * 2),
-                                        color: .white)
-        node.alpha = 0.25
-        node.position = CGPoint(x: tx + CGFloat.random(in: -3...3), y: ty + CGFloat.random(in: -3...3))
+                                        color: color)
+        node.alpha = 0.22
+        node.position = CGPoint(x: tx, y: ty)
         node.zPosition = 5
         shakeNode.addChild(node)
-        trailParticles.append(TrailParticle(node: node, lifetime: TimeInterval(CGFloat.random(in: 0.15...0.35))))
+        trailParticles.append(TrailParticle(node: node, lifetime: TimeInterval(CGFloat.random(in: 0.18...0.3))))
     }
 
     // MARK: Camera shake (Mac-oto inspired)

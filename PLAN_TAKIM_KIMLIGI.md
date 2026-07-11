@@ -139,10 +139,20 @@ SwiftData), MatchScene fizik kodu.
 
 ---
 
-## AŞAMA 3 — Görsel efekt inceltme
+## AŞAMA 3 — Görsel efekt inceltme (KODLANDI ✅ — Xcode doğrulaması bekliyor)
 
 **Hedef:** Mevcut efektleri "hafif ve zarif" hale getirmek (sıfırdan değil,
 mevcut sistem üzerine).
+
+**Uygulandı:**
+- Tail: dağınık beyaz toz (rastgele ±3 saçılma) → topun tam arkasında, gidiş
+  yönüne hizalı, yalnız dikey jitter, ince (yarıçapın ~%16'sı), takım renginde,
+  fade + incelen (0.22 opaklık) sürekli bir kuyruk.
+- Çarpışma kıvılcımı: top-top 30→12, top-duvar 15→6 parçacık; daha küçük
+  (1.2–3.5), daha yavaş (50–220), daha yumuşak/az doygun renk, daha kısa ömür
+  (0.22–0.45), tepe opaklık 0.9. "Az belirgin hafif efekt".
+- Gol file parlaması: bu turda ATLANDI (opsiyoneldi; kale çerçeve node'una
+  referans tutmak gerekiyor — ayrı küçük iş olarak bırakıldı).
 
 **Not:** Tail (`spawnTrail`) ve çarpışma efektleri (`spawnCollisionEffects`,
 hem top-top hem top-duvar) motorda ZATEN var. Bu aşama onları ayarlar:
