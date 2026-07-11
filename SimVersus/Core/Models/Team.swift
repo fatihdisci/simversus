@@ -33,6 +33,9 @@ struct Team: Codable, Identifiable, Hashable {
     /// Mechanical identity (weight/speed/size). Optional in JSON — a team without
     /// a `stats` block falls back to the neutral 3/3/3 baseline.
     let stats: TeamStats
+    /// Kit pattern painted over the primary colour. Optional in JSON — defaults
+    /// to `.solid`. Preset teams are solid; custom teams may pick a pattern.
+    let pattern: KitPattern
 
     /// Primary colour resolved from `primary`.
     var primaryColor: Color { Color(hex: primary) }
@@ -42,7 +45,7 @@ struct Team: Codable, Identifiable, Hashable {
 
 extension Team {
     private enum CodingKeys: String, CodingKey {
-        case id, nameKey, nameTR, nameEN, short, primary, secondary, badgeShape, tier, baseStrength, stats
+        case id, nameKey, nameTR, nameEN, short, primary, secondary, badgeShape, tier, baseStrength, stats, pattern
     }
 
     /// Custom decode so a missing `stats` block defaults to `.balanced` instead
@@ -60,5 +63,6 @@ extension Team {
         tier = try c.decode(Int.self, forKey: .tier)
         baseStrength = try c.decode(Int.self, forKey: .baseStrength)
         stats = try c.decodeIfPresent(TeamStats.self, forKey: .stats) ?? .balanced
+        pattern = try c.decodeIfPresent(KitPattern.self, forKey: .pattern) ?? .solid
     }
 }

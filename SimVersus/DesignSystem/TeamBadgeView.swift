@@ -23,6 +23,9 @@ struct TeamBadgeView: View {
             ZStack {
                 ShieldShape()
                     .fill(team.primaryColor)
+                KitPatternShape(pattern: team.pattern)
+                    .fill(team.secondaryColor)
+                    .clipShape(ShieldShape())
                 ShieldShape()
                     .strokeBorder(team.secondaryColor, lineWidth: strokeWidth)
                 BadgeSymbolShape(shape: team.badgeShape)

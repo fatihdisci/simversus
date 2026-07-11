@@ -99,11 +99,16 @@ gol atar (kullanıcı kararı: "kendiliğinden olsun").
 
 ---
 
-## AŞAMA 2 — Takım oluşturucu (özelleştirme)
+## AŞAMA 2 — Takım oluşturucu (KODLANDI ✅ — Xcode doğrulaması bekliyor)
 
 **Hedef:** Kullanıcı isim + 2 renk + rozet şekli + **forma pattern** + **stat
-dağıtımı** ile kendi takımını yaratır ve maça sokar. (FAZ2 §2a temel alınır,
-üzerine stat + pattern eklenir.)
+dağıtımı (stepper, 9 puan kilidi)** ile kendi takımını yaratır ve maça sokar.
+
+**Uygulandı:** KitPattern (6 desen, ortak Path → hem SwiftUI badge hem SpriteKit
+top), Team.pattern alanı, SwiftData CustomTeam + asTeam adaptörü, TeamNameValidator
+(diakritik-duyarsız blocklist), CustomTeamStore (1 slot), TeamCreatorView (stepper
+statlar + canlı önizleme), TeamSelect entegrasyonu (Özel Takımlar + Yarat butonu),
+SwiftData modelContainer, TR+EN stringler, birim testleri (CustomTeamTests).
 
 **Dosyalar:**
 - `Core/Models/CustomTeam.swift` (YENİ): SwiftData `@Model` — name (≤20),

@@ -6,24 +6,31 @@
 //  CTA activates and calls `onStart`. Navigation is wired in Part 1d.
 
 import SwiftUI
+import SwiftData
 
 struct TeamSelectView: View {
     let teams: [Team]
+    let onCreateTeam: () -> Void
     let onStart: (_ home: Team, _ away: Team) -> Void
+
+    /// User-created teams, oldest first — appended after the presets.
+    @Query(sort: \CustomTeam.createdAt) private var customTeams: [CustomTeam]
 
     @State private var matchup = TeamMatchup()
 
     private let badgeSize: CGFloat = 64
+
+    /// Presets followed by the adapted custom teams — the full pool for both sides.
+    private var selectableTeams: [Team] { teams + customTeams.map(\.asTeam) }
+
+    private var slotAvailable: Bool { CustomTeamStore.canCreate(existingCount: customTeams.count) }
 
     var body: some View {
         ZStack {
             Palette.bgPrimary.ignoresSafeArea()
 
             VStack(spacing: Spacing.l) {
-                Text("teamselect.title")
-                    .font(.titleXL)
-                    .foregroundStyle(Palette.textPrimary)
-                    .padding(.top, Spacing.m)
+                header
 
                 teamRow(titleKey: "teamselect.home",
                         isSelected: { matchup.home == $0 },
@@ -45,6 +52,23 @@ struct TeamSelectView: View {
 
     // MARK: - Subviews
 
+    private var header: some View {
+        HStack {
+            Text("teamselect.title")
+                .font(.titleXL)
+                .foregroundStyle(Palette.textPrimary)
+            Spacer()
+            Button(action: { if slotAvailable { onCreateTeam() } }) {
+                Label("teamselect.create", systemImage: slotAvailable ? "plus.circle.fill" : "lock.fill")
+                    .font(.label)
+                    .foregroundStyle(slotAvailable ? Palette.accent : Palette.textSecondary)
+            }
+            .buttonStyle(.plain)
+            .disabled(!slotAvailable)
+        }
+        .padding(.top, Spacing.m)
+    }
+
     private func teamRow(titleKey: LocalizedStringKey,
                          isSelected: @escaping (Team) -> Bool,
                          isDisabled: @escaping (Team) -> Bool,
@@ -56,7 +80,7 @@ struct TeamSelectView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: Spacing.m) {
-                    ForEach(teams) { team in
+                    ForEach(selectableTeams) { team in
                         TeamCard(team: team,
                                  badgeSize: badgeSize,
                                  isSelected: isSelected(team),
@@ -130,5 +154,6 @@ private struct TeamCard: View {
 }
 
 #Preview {
-    TeamSelectView(teams: TeamStore().mvpTeams) { _, _ in }
+    TeamSelectView(teams: TeamStore().mvpTeams, onCreateTeam: {}) { _, _ in }
+        .modelContainer(for: CustomTeam.self, inMemory: true)
 }

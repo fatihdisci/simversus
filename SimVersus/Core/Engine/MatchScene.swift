@@ -151,11 +151,25 @@ final class MatchScene: SKScene {
         let renderer = UIGraphicsImageRenderer(size: size)
         let image = renderer.image { ctx in
             let rect = CGRect(origin: .zero, size: size)
+            let cg = ctx.cgContext
             UIColor(team.primaryColor).setFill()
-            ctx.cgContext.fillEllipse(in: rect)
+            cg.fillEllipse(in: rect)
+
+            // Kit pattern — secondary-coloured regions clipped to the ball.
+            let patternPath = team.pattern.secondaryRegionsCGPath(in: rect)
+            if !patternPath.isEmpty {
+                cg.saveGState()
+                cg.addEllipse(in: rect)
+                cg.clip()
+                cg.addPath(patternPath)
+                UIColor(team.secondaryColor).setFill()
+                cg.fillPath()
+                cg.restoreGState()
+            }
+
             UIColor(team.secondaryColor).setStroke()
-            ctx.cgContext.setLineWidth(2)
-            ctx.cgContext.strokeEllipse(in: rect.insetBy(dx: 1, dy: 1))
+            cg.setLineWidth(2)
+            cg.strokeEllipse(in: rect.insetBy(dx: 1, dy: 1))
             let symbolRect = rect.insetBy(dx: diameter * 0.22, dy: diameter * 0.22)
             UIColor(team.secondaryColor).setFill()
             Self.drawBadgeSymbol(shape: team.badgeShape, in: symbolRect, ctx: ctx.cgContext)
