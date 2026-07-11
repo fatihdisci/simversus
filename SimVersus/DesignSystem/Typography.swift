@@ -15,6 +15,9 @@ extension Font {
     /// Extra-large title — SF Pro Rounded, 28pt bold. Screen titles / wordmark.
     static let titleXL = Font.system(size: 28, weight: .bold, design: .rounded)
 
+    /// Compact separator used between two live match scores.
+    static let scoreSeparator = Font.system(size: 24, weight: .bold, design: .rounded)
+
     /// Label / short code — SF Mono, 13pt semibold. Badges, tags, short codes.
     static let label = Font.system(size: 13, weight: .semibold, design: .monospaced)
 

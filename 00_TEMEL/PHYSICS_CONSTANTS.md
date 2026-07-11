@@ -13,8 +13,10 @@
 | `arenaRadius` | ekran genişliğinin %42'si | Sim-uzayında sabit 160 pt, render'da ölçeklenir |
 | `arenaRotationSpeed` | 0.65 rad/s | Arenanın (ve gap'in) sabit dönüş hızı |
 | `arenaWallRestitution` | 0.9 | Duvar sekme esnekliği |
-| `gapWidth` | 0.28 rad | Kale boşluğunun açısal genişliği |
-| `exitMargin` | 14 pt | Topun "çıkmış" sayılması için arenaRadius'u aşması gereken ek mesafe |
+| `minimumWallSeparationSpeed` | 48 pt/s | Teğet vuruşlarda topun duvara yapışmasını önleyen minimum ayrılma hızı |
+| `wallSeparationInset` | 0.75 pt | Ardışık frame'de tekrar teması önleyen küçük içeri konum payı |
+| `gapWidth` | 0.54 rad | Biraz daha kompakt kale ağzı; top yarıçapı ve direk teması fiziksel hesaplanır |
+| `exitMargin` | 24 pt | Gol sayılmadan önce topun çemberin dışına görünür biçimde çıkacağı mesafe |
 
 ## Toplar (dairesel, takım renginde, badge sembollü)
 
@@ -62,8 +64,8 @@
 | Sabit | Değer | Açıklama |
 |---|---|---|
 | `matchDuration` | 90 sn → 90 dk gösterim | 1 sn = 1 dk. Skor ekranında dakika gösterilir |
-| `halfTimePause` | 2.0 sn | Devre arası kısa duraklama + yeniden kickoff |
-| `goalCelebrationPause` | 1.6 sn | Gol sonrası duraklama, skor overlay animasyonu |
+| `halfTimePause` | 1.8 sn | Fiziği durdurmayan devre arası duyuru süresi |
+| `goalCelebrationPause` | 1.6 sn | Fiziği durdurmayan gol yazısı ve konfeti süresi |
 | `maxSimSpeed` | 1x (MVP) | Hız ayarı Faz 2d'de 1x/2x/4x olur |
 
 ## Simülasyon sabitleri

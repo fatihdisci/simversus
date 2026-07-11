@@ -141,6 +141,27 @@
         }
       }
     },
+    "match.exit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Exit Match" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Maçtan Çık" } }
+      }
+    },
+    "match.exit.confirm.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "This match's progress won't be saved." } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Bu maçın ilerlemesi kaydedilmeyecek." } }
+      }
+    },
+    "match.exit.confirm.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Exit the match?" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Maçtan çıkmak istiyor musun?" } }
+      }
+    },
     "match.goal" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -156,6 +177,20 @@
             "value" : "GOL!"
           }
         }
+      }
+    },
+    "match.halftime.subtitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "The second half is underway" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "İkinci yarı başladı" } }
+      }
+    },
+    "match.halftime.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "HALF TIME" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "İLK YARI BİTTİ" } }
       }
     },
     "match.half.first" : {
@@ -190,6 +225,27 @@
             "value" : "İkinci Yarı"
           }
         }
+      }
+    },
+    "match.pause" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Pause" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Duraklat" } }
+      }
+    },
+    "match.paused.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "MATCH PAUSED" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "MAÇ DURAKLATILDI" } }
+      }
+    },
+    "match.resume" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Resume" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Devam Et" } }
       }
     },
     "result.draw" : {

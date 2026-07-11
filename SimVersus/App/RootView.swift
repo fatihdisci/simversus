@@ -49,7 +49,9 @@ struct RootView: View {
             TeamCreatorView(onDone: { if !path.isEmpty { path.removeLast() } })
 
         case .match(let config):
-            MatchView(config: config) { result in
+            MatchView(config: config, onExit: {
+                path = [.teamSelect]
+            }) { result in
                 appState.matchesPlayedCount += 1
                 // Replace the match route with the result so the user can't
                 // swipe back onto the paused scene.

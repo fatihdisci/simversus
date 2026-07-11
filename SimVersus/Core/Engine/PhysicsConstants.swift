@@ -23,10 +23,16 @@ enum PhysicsConstants {
     static let arenaRotationSpeed: CGFloat = 0.8
     /// Wall bounce elasticity.
     static let arenaWallRestitution: CGFloat = 0.9
+    /// Minimum speed directed away from a wall after contact. Prevents shallow
+    /// grazing hits from visually sticking to and sliding around the ring.
+    static let minimumWallSeparationSpeed: CGFloat = 48
+    /// Tiny positional inset after a wall collision, avoiding repeat contact on
+    /// the immediately following fixed step due to floating-point tolerance.
+    static let wallSeparationInset: CGFloat = 0.75
     /// Angular width of the single goal gap on the arena ring (rad).
-    static let gapWidth: CGFloat = 0.28
+    static let gapWidth: CGFloat = 0.54
     /// Extra distance beyond arenaRadius a ball centre must pass to be "out".
-    static let exitMargin: CGFloat = 14
+    static let exitMargin: CGFloat = 24
 
     // MARK: Balls (each is a team's badge — no separate ball asset)
 
@@ -117,9 +123,9 @@ enum PhysicsConstants {
 
     /// Real seconds of play → shown as 90 minutes (1 s = 1 min).
     static let matchDuration: TimeInterval = 90
-    /// Pause at half time before the second-half kickoff.
-    static let halfTimePause: TimeInterval = 2.0
-    /// Pause after a goal (score overlay + celebration).
+    /// Duration of the non-blocking half-time announcement.
+    static let halfTimePause: TimeInterval = 1.8
+    /// Duration of the non-blocking goal overlay + celebration.
     static let goalCelebrationPause: TimeInterval = 1.6
     /// Simulation speed multiplier (1× in the MVP; 1/2/4× arrives in Phase 2d).
     static let maxSimSpeed: CGFloat = 1

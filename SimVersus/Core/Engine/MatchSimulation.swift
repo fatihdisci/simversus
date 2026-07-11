@@ -89,6 +89,8 @@ final class MatchSimulation {
     private var goalsLog: [Goal] = []
     private var didHalfTime = false
     private var phase: Phase = .kickoff
+    private var homeIsExiting = false
+    private var awayIsExiting = false
 
     // Boost timers — per-ball countdown to next self-impulse.
     private var homeBoostTimer: TimeInterval
@@ -124,8 +126,6 @@ final class MatchSimulation {
     private enum Phase: Equatable {
         case kickoff
         case playing
-        case celebrating(remaining: TimeInterval)
-        case halfTime(remaining: TimeInterval)
         case ended
     }
 
@@ -190,7 +190,7 @@ final class MatchSimulation {
         guard !isFinished else { return }
         let dt = PhysicsConstants.fixedTimeStep
 
-        // Rotation is handled in stepPlaying; during non-playing phases use base speed.
+        // Rotation is handled in stepPlaying; kickoff lasts only one fixed step.
         if phase != .playing {
             arenaRotation += PhysicsConstants.arenaRotationSpeed * CGFloat(dt)
         }
@@ -199,20 +199,11 @@ final class MatchSimulation {
         case .kickoff:
             kickoff()
             phase = .playing
-        case .celebrating(let remaining):
-            phase = remaining - dt <= 0 ? resumeWithKickoff() : .celebrating(remaining: remaining - dt)
-        case .halfTime(let remaining):
-            phase = remaining - dt <= 0 ? resumeWithKickoff() : .halfTime(remaining: remaining - dt)
         case .playing:
             stepPlaying(dt: dt)
         case .ended:
             break
         }
-    }
-
-    private func resumeWithKickoff() -> Phase {
-        kickoff()
-        return .playing
     }
 
     private func stepPlaying(dt: TimeInterval) {
@@ -252,8 +243,8 @@ final class MatchSimulation {
 
         // Wall/goal: for each ball, if past wall boundary check gap → goal or bounce.
         // MUST happen before wall clamping so exit-through-gap can be detected.
-        if processWallOrGoal(ball: &homeBall, side: .home) { return }
-        if processWallOrGoal(ball: &awayBall, side: .away) { return }
+        processWallOrGoal(ball: &homeBall, side: .home)
+        processWallOrGoal(ball: &awayBall, side: .away)
 
         // Stall protection.
         updateStall(ball: &homeBall, timer: &homeStallTimer, dt: dt)
@@ -261,8 +252,6 @@ final class MatchSimulation {
 
         if !didHalfTime, matchClock >= config.duration / 2 {
             didHalfTime = true
-            phase = .halfTime(remaining: PhysicsConstants.halfTimePause)
-            return
         }
         if matchClock >= config.duration {
             endMatch()
@@ -369,44 +358,184 @@ final class MatchSimulation {
 
     /// Processes a ball that is past the arena wall boundary. If the ball is in the
     /// gap region → goal for the ball's OWN side (it went in the net). Otherwise
-    /// bounces it off the wall. Returns `true` if a goal was scored.
-    private func processWallOrGoal(ball: inout Disc, side: Side) -> Bool {
+    /// bounces it off the wall.
+    private func processWallOrGoal(ball: inout Disc, side: Side) {
         let dist = ball.position.length
         let wallBoundary = PhysicsConstants.arenaRadius - ball.effectiveRadius
-        guard dist > wallBoundary, dist > 0.0001 else { return false }
+        let wasExiting = side == .home ? homeIsExiting : awayIsExiting
+        if wasExiting, dist <= wallBoundary {
+            // A collision can send a ball back through the mouth before it fully
+            // clears the net. It must re-enter the goal normally on its next try.
+            setExiting(false, for: side)
+        }
+
+        // The two arc endpoints are physical round posts. Resolving these as
+        // point-vs-disc contacts gives glancing corner hits their real normal,
+        // instead of a radial wall bounce or a false goal.
+        if resolveGoalPostCollision(ball: &ball) { return }
+
+        guard dist > wallBoundary, dist > 0.0001 else { return }
 
         let angle = atan2(ball.position.y, ball.position.x)
-
-        // Ball past wall AND in the gap AND moving outward → it goes IN the goal →
-        // the ball's OWN team scores (football logic: you put your ball in the net).
         let outwardVelocity = ball.velocity.dot(ball.position.normalized)
-        if isInGap(angle), outwardVelocity > 0 {
-            let scorer: Side = side
-            recordGoal(scoredBy: scorer)
-            return true
+        let isExiting = side == .home ? homeIsExiting : awayIsExiting
+
+        if isExiting {
+            // Once inside, the upper/lower goal rails remain solid. This closes
+            // the old loophole where an exiting ball could clip through a corner.
+            if resolveGoalSideRailCollision(ball: &ball) { return }
+
+            // A scoring ball may never roam freely outside the arena. It either
+            // crosses the line while still inside the goal corridor, or loses
+            // exit permission immediately and is contained by the circular wall.
+            let reachedHardExitLimit = dist >= PhysicsConstants.arenaRadius + PhysicsConstants.exitMargin
+            if hasCrossedGoalLine(ball) || reachedHardExitLimit {
+                recordGoal(scoredBy: side)
+                resetBallAfterGoal(&ball, side: side)
+                setExiting(false, for: side)
+                return
+            }
+
+            guard isInsideGoalCorridor(ball) else {
+                setExiting(false, for: side)
+                bounceOffArenaWall(ball: &ball, distance: dist, boundary: wallBoundary)
+                return
+            }
+            return
+        }
+
+        // Crossing the mouth only starts an exit. The score is awarded after the
+        // ball visibly travels through the entire goal and beyond the arena ring.
+        if isInsideGoalMouth(ball: ball, angle: angle, distance: dist), outwardVelocity > 0 {
+            setExiting(true, for: side)
+            return
         }
 
         // Not in gap: bounce off the wall.
-        let inwardNormal = ball.position * (-1 / dist)
+        bounceOffArenaWall(ball: &ball, distance: dist, boundary: wallBoundary)
+    }
+
+    private func bounceOffArenaWall(ball: inout Disc, distance: CGFloat, boundary: CGFloat) {
+        let inwardNormal = ball.position * (-1 / distance)
         let velocityAlongNormal = ball.velocity.dot(inwardNormal)
         let impactSpeed = abs(velocityAlongNormal)
         if velocityAlongNormal < 0 {
             ball.velocity = ball.velocity - inwardNormal * ((1 + PhysicsConstants.ballToWallRestitution) * velocityAlongNormal)
         }
-        ball.position = ball.position * (wallBoundary / dist)
+        enforceMinimumSeparation(on: &ball.velocity, awayFrom: inwardNormal)
+        let separatedBoundary = max(0, boundary - PhysicsConstants.wallSeparationInset)
+        ball.position = ball.position * (separatedBoundary / distance)
 
         // Track wall collision for visual effects.
         if impactSpeed > 20 {
             let intensity = min(1.0, impactSpeed / 250)
             pendingCollisionEvents.append(CollisionEvent(position: ball.position, intensity: intensity, isBallBall: false))
         }
+    }
+
+    private func setExiting(_ value: Bool, for side: Side) {
+        switch side {
+        case .home: homeIsExiting = value
+        case .away: awayIsExiting = value
+        }
+    }
+
+    private func resolveGoalPostCollision(ball: inout Disc) -> Bool {
+        let half = PhysicsConstants.gapWidth / 2
+        let localX = cos(half) * PhysicsConstants.arenaRadius
+        let localY = sin(half) * PhysicsConstants.arenaRadius
+        let c = cos(arenaRotation), s = sin(arenaRotation)
+        let posts = [CGPoint(x: localX * c - localY * s, y: localX * s + localY * c),
+                     CGPoint(x: localX * c + localY * s, y: localX * s - localY * c)]
+
+        for post in posts {
+            let delta = ball.position - post
+            let distance = delta.length
+            guard distance < ball.effectiveRadius else { continue }
+            let normal = distance > 0.0001 ? delta * (1 / distance) : post.normalized * -1
+            ball.position = post + normal * ball.effectiveRadius
+            let speedIntoPost = ball.velocity.dot(normal)
+            if speedIntoPost < 0 {
+                ball.velocity = ball.velocity - normal * ((1 + PhysicsConstants.ballToWallRestitution) * speedIntoPost)
+            }
+            enforceMinimumSeparation(on: &ball.velocity, awayFrom: normal)
+            ball.position = ball.position + normal * PhysicsConstants.wallSeparationInset
+            pendingCollisionEvents.append(CollisionEvent(position: post,
+                                                          intensity: min(1, abs(speedIntoPost) / 250),
+                                                          isBallBall: false))
+            return true
+        }
         return false
     }
 
-    /// Whether the given world-space angle aligns with the rotating gap.
-    private func isInGap(_ angle: CGFloat) -> Bool {
+    private func resolveGoalSideRailCollision(ball: inout Disc) -> Bool {
+        let c = cos(arenaRotation), s = sin(arenaRotation)
+        var localPosition = CGPoint(x: ball.position.x * c + ball.position.y * s,
+                                    y: -ball.position.x * s + ball.position.y * c)
+        var localVelocity = CGPoint(x: ball.velocity.x * c + ball.velocity.y * s,
+                                    y: -ball.velocity.x * s + ball.velocity.y * c)
         let half = PhysicsConstants.gapWidth / 2
-        return angularDistance(angle, arenaRotation) <= half
+        let frontX = cos(half) * PhysicsConstants.arenaRadius
+        let backX = frontX + PhysicsConstants.exitMargin + 8
+        let railLimit = sin(half) * PhysicsConstants.arenaRadius - ball.effectiveRadius
+        guard localPosition.x >= frontX,
+              localPosition.x <= backX,
+              abs(localPosition.y) > railLimit else { return false }
+
+        let side: CGFloat = localPosition.y >= 0 ? 1 : -1
+        localPosition.y = side * railLimit
+        if localVelocity.y * side > 0 {
+            localVelocity.y = -localVelocity.y * PhysicsConstants.ballToWallRestitution
+        }
+        let separationDirection = -side
+        if localVelocity.y * separationDirection < PhysicsConstants.minimumWallSeparationSpeed {
+            localVelocity.y = separationDirection * PhysicsConstants.minimumWallSeparationSpeed
+        }
+        localPosition.y -= side * PhysicsConstants.wallSeparationInset
+        ball.position = CGPoint(x: localPosition.x * c - localPosition.y * s,
+                                y: localPosition.x * s + localPosition.y * c)
+        ball.velocity = CGPoint(x: localVelocity.x * c - localVelocity.y * s,
+                                y: localVelocity.x * s + localVelocity.y * c)
+        pendingCollisionEvents.append(CollisionEvent(position: ball.position, intensity: 0.65, isBallBall: false))
+        return true
+    }
+
+    private func enforceMinimumSeparation(on velocity: inout CGPoint, awayFrom normal: CGPoint) {
+        let separationSpeed = velocity.dot(normal)
+        guard separationSpeed < PhysicsConstants.minimumWallSeparationSpeed else { return }
+        velocity = velocity + normal * (PhysicsConstants.minimumWallSeparationSpeed - separationSpeed)
+    }
+
+    private func hasCrossedGoalLine(_ ball: Disc) -> Bool {
+        let c = cos(arenaRotation), s = sin(arenaRotation)
+        let localX = ball.position.x * c + ball.position.y * s
+        return localX >= PhysicsConstants.arenaRadius + PhysicsConstants.exitMargin
+    }
+
+    private func isInsideGoalCorridor(_ ball: Disc) -> Bool {
+        let c = cos(arenaRotation), s = sin(arenaRotation)
+        let localPosition = CGPoint(x: ball.position.x * c + ball.position.y * s,
+                                    y: -ball.position.x * s + ball.position.y * c)
+        let half = PhysicsConstants.gapWidth / 2
+        let frontX = cos(half) * PhysicsConstants.arenaRadius
+        let backX = frontX + PhysicsConstants.exitMargin + 8
+        let railLimit = sin(half) * PhysicsConstants.arenaRadius - ball.effectiveRadius
+        return localPosition.x >= frontX - ball.effectiveRadius
+            && localPosition.x <= backX
+            && abs(localPosition.y) <= railLimit + 1
+    }
+
+    /// The gap is visually wider than a ball. A centre point is only admitted
+    /// when its entire circle clears both goal posts; otherwise it bounces.
+    /// This is the physical guard that prevents corner clipping into a goal.
+    private func isInsideGoalMouth(ball: Disc, angle: CGFloat, distance: CGFloat) -> Bool {
+        let half = PhysicsConstants.gapWidth / 2
+        let mouthHalfHeight = PhysicsConstants.arenaRadius * sin(half)
+        let centreClearance = mouthHalfHeight - ball.effectiveRadius
+        guard centreClearance > 0 else { return false }
+        let localAngle = angularDistance(angle, arenaRotation)
+        let lateralOffset = distance * sin(localAngle)
+        return lateralOffset <= centreClearance
     }
 
     private func angularDistance(_ a: CGFloat, _ b: CGFloat) -> CGFloat {
@@ -441,7 +570,22 @@ final class MatchSimulation {
             awayScore += 1
             goalsLog.append(Goal(minute: displayMinute, teamID: config.awayTeam.id))
         }
-        phase = .celebrating(remaining: PhysicsConstants.goalCelebrationPause)
+    }
+
+    /// Respawns only the scoring ball. The opponent and match clock never freeze.
+    private func resetBallAfterGoal(_ ball: inout Disc, side: Side) {
+        clearPowerUpEffect(&ball)
+        let spawnRadius = CGFloat.random(in: 0...PhysicsConstants.ballRadius * 0.35, using: &rng)
+        let spawnAngle = CGFloat.random(in: 0..<2 * .pi, using: &rng)
+        ball.position = CGPoint(x: cos(spawnAngle) * spawnRadius, y: sin(spawnAngle) * spawnRadius)
+        let launchAngle = CGFloat.random(in: 0..<2 * .pi, using: &rng)
+        let magnitude = CGFloat.random(in: PhysicsConstants.kickoffImpulseRange, using: &rng) / ball.mass
+        ball.velocity = CGPoint(x: cos(launchAngle) * magnitude, y: sin(launchAngle) * magnitude)
+        ball.rotation = 0
+        switch side {
+        case .home: homeStallTimer = 0; homeBoostTimer = Self.nextBoostInterval(using: &rng)
+        case .away: awayStallTimer = 0; awayBoostTimer = Self.nextBoostInterval(using: &rng)
+        }
     }
 
     private func endMatch() {
@@ -466,6 +610,8 @@ final class MatchSimulation {
     }
 
     private func resetFormation() {
+        homeIsExiting = false
+        awayIsExiting = false
         // Clear any active power-up effects for a fresh start (kickoff / post-goal).
         clearPowerUpEffect(&homeBall)
         clearPowerUpEffect(&awayBall)

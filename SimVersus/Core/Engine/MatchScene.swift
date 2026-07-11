@@ -56,6 +56,7 @@ final class MatchScene: SKScene {
     var onMatchEnded: ((MatchResult) -> Void)?
     var onHUDUpdate: ((MatchHUDSnapshot) -> Void)?
     var onGoalScored: (() -> Void)?
+    var onHalfTime: (() -> Void)?
 
     // Hierarchy: world → shakeNode → arenaNode + ballNodes + particles.
     private let worldNode = SKNode()
@@ -83,6 +84,7 @@ final class MatchScene: SKScene {
     private var accumulator: TimeInterval = 0
     private var lastSnapshot = MatchHUDSnapshot()
     private var lastTotalGoals = 0
+    private var didPublishHalfTime = false
 
     // Camera shake.
     private var shakeIntensity: CGFloat = 0
@@ -110,6 +112,9 @@ final class MatchScene: SKScene {
 
     override func didMove(to view: SKView) {
         guard worldNode.parent == nil else { return }
+        view.preferredFramesPerSecond = 60
+        view.shouldCullNonVisibleNodes = true
+        view.ignoresSiblingOrder = true
         buildNodes()
         layoutWorld()
     }
@@ -382,7 +387,7 @@ final class MatchScene: SKScene {
     /// stays glued to the opening. The frame is an outward "⊐" bracket whose open
     /// mouth faces the arena interior — the direction a ball travels to score.
     private func buildGoal(radius r: CGFloat, half: CGFloat) {
-        let depth: CGFloat = 34                 // how far the goal box extends past the wall
+        let depth: CGFloat = PhysicsConstants.exitMargin + 8
         let frontX = cos(half) * r              // both gap edges share this x (mouth is a chord)
         let topY = sin(half) * r
         let botY = -topY
@@ -439,7 +444,15 @@ final class MatchScene: SKScene {
 
     private func layoutWorld() {
         guard size.width > 0 else { return }
-        worldNode.setScale(PhysicsConstants.arenaRenderWidthFraction * size.width / PhysicsConstants.arenaRadius)
+        // The goal extends beyond the arena ring. Reserve a small screen gutter
+        // for its frame/net at every rotation, instead of letting it clip at the
+        // left/right edge when the rotating opening points sideways.
+        let baseScale = PhysicsConstants.arenaRenderWidthFraction * size.width / PhysicsConstants.arenaRadius
+        let goalFrontRadius = cos(PhysicsConstants.gapWidth / 2) * PhysicsConstants.arenaRadius
+        let goalOuterRadius = goalFrontRadius + PhysicsConstants.exitMargin + 8
+        let horizontalGutter: CGFloat = 16
+        let fittingScale = max(0, (size.width / 2 - horizontalGutter) / goalOuterRadius)
+        worldNode.setScale(min(baseScale, fittingScale))
         worldNode.position = .zero
     }
 
@@ -591,6 +604,10 @@ final class MatchScene: SKScene {
             lastTotalGoals = total
             onGoalScored?()
             triggerGoalEffects()
+        }
+        if !didPublishHalfTime, !simulation.isFirstHalf {
+            didPublishHalfTime = true
+            onHalfTime?()
         }
     }
 
