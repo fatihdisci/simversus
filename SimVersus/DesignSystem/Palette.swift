@@ -44,10 +44,18 @@ extension Color {
 /// The SimVersus colour palette — "stadium night match": dark ground, bright
 /// arena, UI recedes. Every UI colour comes from one of these tokens.
 enum Palette {
+    /// Deepest backdrop used at screen edges and behind gradients.
+    static let bgDeep = Color(hex: "#070B12")
     /// `bg.primary` — main dark ground.
-    static let bgPrimary = Color(hex: "#0E1116")
+    static let bgPrimary = Color(hex: "#0B111B")
     /// `bg.elevated` — cards, sheets.
-    static let bgElevated = Color(hex: "#171C24")
+    static let bgElevated = Color(hex: "#141D2A")
+    /// Stronger surface used for focused/selected content.
+    static let bgElevatedStrong = Color(hex: "#1A2636")
+    /// Translucent hairline used around night-mode surfaces.
+    static let borderSubtle = Color(hex: "#263549")
+    /// Brighter border for focused controls.
+    static let borderStrong = Color(hex: "#41546D")
     /// `bg.arena` — match scene floor (MVP flat background).
     static let bgArena = Color(hex: "#101820")
 
@@ -60,9 +68,15 @@ enum Palette {
     static let textPrimary = Color(hex: "#F2F4F7")
     /// `text.secondary` — secondary / muted text.
     static let textSecondary = Color(hex: "#9AA4B2")
+    /// Disabled and tertiary labels.
+    static let textTertiary = Color(hex: "#667386")
 
     /// `accent` — CTAs, live-score highlight ("grass-green neon").
     static let accent = Color(hex: "#38E07B")
+    /// Arena-energy cyan; visual identity, not a primary CTA colour.
+    static let energy = Color(hex: "#19D8F2")
+    /// Cool secondary accent for information and selected data.
+    static let info = Color(hex: "#6EA8FF")
     /// `accent.warning` — warnings, cautions.
     static let accentWarning = Color(hex: "#F2C230")
     /// `danger` — destructive / error.

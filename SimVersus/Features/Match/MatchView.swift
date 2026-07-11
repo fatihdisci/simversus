@@ -34,8 +34,13 @@ final class MatchViewModel: ObservableObject {
     }
 
     func togglePause() {
-        isPaused.toggle()
-        scene.isPaused = isPaused
+        setPaused(!isPaused)
+    }
+
+    func setPaused(_ paused: Bool) {
+        guard isPaused != paused else { return }
+        isPaused = paused
+        scene.isPaused = paused
     }
 
     private func announceHalfTime() {
@@ -59,6 +64,7 @@ struct MatchView: View {
     @StateObject private var model: MatchViewModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showExitConfirmation = false
+    @State private var pauseStateBeforeExitPrompt: Bool?
     private let onExit: () -> Void
 
     init(config: MatchConfig, onExit: @escaping () -> Void, onMatchEnded: @escaping (MatchResult) -> Void) {
@@ -74,20 +80,18 @@ struct MatchView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: Spacing.m) {
-                ZStack(alignment: .top) {
-                    scoreboard
-                        .frame(maxWidth: 248)
-
-                    HStack {
-                        controlButton(systemName: "xmark", label: "match.exit") {
-                            if !model.isPaused { model.togglePause() }
-                            showExitConfirmation = true
-                        }
-                        Spacer()
-                        controlButton(systemName: model.isPaused ? "play.fill" : "pause.fill",
-                                      label: model.isPaused ? "match.resume" : "match.pause") {
+                HStack(alignment: .top, spacing: Spacing.s) {
+                    ArenaIconButton(systemName: "xmark",
+                                    accessibilityKey: "match.exit") {
+                            presentExitConfirmation()
+                    }
+                    BroadcastScoreboard(homeTeam: model.homeTeam,
+                                        awayTeam: model.awayTeam,
+                                        hud: model.hud)
+                    .frame(maxWidth: 256)
+                    ArenaIconButton(systemName: model.isPaused ? "play.fill" : "pause.fill",
+                                    accessibilityKey: model.isPaused ? "match.resume" : "match.pause") {
                             model.togglePause()
-                        }
                     }
                 }
                 Spacer()
@@ -105,55 +109,19 @@ struct MatchView: View {
                 .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.78), value: model.showHalfTime)
                 .allowsHitTesting(false)
 
-            if model.isPaused { pauseOverlay }
+            if model.isPaused, !showExitConfirmation {
+                MatchPausePanel(onExit: presentExitConfirmation) { model.setPaused(false) }
+            }
         }
         .confirmationDialog("match.exit.confirm.title", isPresented: $showExitConfirmation, titleVisibility: .visible) {
-            Button("match.exit", role: .destructive, action: onExit)
-            Button("match.resume", role: .cancel) {
-                if model.isPaused { model.togglePause() }
-            }
+            Button("match.exit", role: .destructive, action: confirmExit)
+            Button("common.cancel", role: .cancel, action: restoreStateAfterExitPrompt)
         } message: {
             Text("match.exit.confirm.message")
         }
-    }
-
-    // MARK: Scoreboard
-
-    private var scoreboard: some View {
-        VStack(spacing: Spacing.xs) {
-            HStack(spacing: 10) {
-                TeamBadgeView(team: model.homeTeam, size: 30)
-                Text("\(model.hud.homeScore)")
-                    .font(.scoreboard)
-                    .foregroundStyle(Palette.textPrimary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.72)
-                    .frame(minWidth: 26)
-                Text(verbatim: "–")
-                    .font(.scoreSeparator)
-                    .foregroundStyle(Palette.textSecondary)
-                Text("\(model.hud.awayScore)")
-                    .font(.scoreboard)
-                    .foregroundStyle(Palette.textPrimary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.72)
-                    .frame(minWidth: 26)
-                TeamBadgeView(team: model.awayTeam, size: 30)
-            }
-            HStack(spacing: Spacing.s) {
-                Text(verbatim: "\(model.hud.minute)'")
-                    .font(.label)
-                    .foregroundStyle(Palette.accent)
-                Text(model.hud.isFirstHalf ? "match.half.first" : "match.half.second")
-                    .font(.label)
-                    .foregroundStyle(Palette.textSecondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-            }
+        .onChange(of: showExitConfirmation) { _, isPresented in
+            if !isPresented { restoreStateAfterExitPrompt() }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, Spacing.s)
-        .background(Palette.bgElevated.opacity(0.9), in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
     }
 
     // MARK: Goal flash
@@ -184,39 +152,24 @@ struct MatchView: View {
         .overlay(RoundedRectangle(cornerRadius: Radius.card).stroke(Palette.accent.opacity(0.45)))
     }
 
-    private var pauseOverlay: some View {
-        VStack(spacing: Spacing.l) {
-            Image(systemName: "pause.fill")
-                .font(.system(size: 26, weight: .bold))
-                .foregroundStyle(Palette.accent)
-            Text("match.paused.title")
-                .font(.titleXL)
-                .foregroundStyle(.white)
-            HStack(spacing: Spacing.m) {
-                Button("match.exit", role: .destructive) { showExitConfirmation = true }
-                    .buttonStyle(.bordered)
-                Button("match.resume") { model.togglePause() }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Palette.accent)
-            }
-        }
-        .padding(Spacing.xl)
-        .background(Palette.bgElevated.opacity(0.96), in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: Radius.card).stroke(.white.opacity(0.12)))
-        .shadow(color: .black.opacity(0.35), radius: 30)
+    private func presentExitConfirmation() {
+        guard !showExitConfirmation else { return }
+        pauseStateBeforeExitPrompt = model.isPaused
+        model.setPaused(true)
+        showExitConfirmation = true
     }
 
-    private func controlButton(systemName: String, label: LocalizedStringKey, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: 15, weight: .bold))
-                .frame(width: 42, height: 42)
-                .foregroundStyle(.white)
-                .background(Palette.bgElevated.opacity(0.9), in: Circle())
-                .overlay(Circle().stroke(.white.opacity(0.12)))
-        }
-        .accessibilityLabel(Text(label))
+    private func restoreStateAfterExitPrompt() {
+        guard let wasPaused = pauseStateBeforeExitPrompt else { return }
+        pauseStateBeforeExitPrompt = nil
+        model.setPaused(wasPaused)
     }
+
+    private func confirmExit() {
+        pauseStateBeforeExitPrompt = nil
+        onExit()
+    }
+
 }
 
 #Preview {

@@ -19,6 +19,19 @@ enum CreatorPalette {
     ]
 }
 
+enum TeamStylePreset: CaseIterable {
+    case balanced, powerful, fast, large
+
+    var titleKey: LocalizedStringKey {
+        switch self {
+        case .balanced: "creator.preset.balanced"
+        case .powerful: "creator.preset.powerful"
+        case .fast: "creator.preset.fast"
+        case .large: "creator.preset.large"
+        }
+    }
+}
+
 // MARK: - View model
 
 final class TeamCreatorModel: ObservableObject {
@@ -62,6 +75,15 @@ final class TeamCreatorModel: ObservableObject {
         if canDecrement(self[keyPath: path]) { self[keyPath: path] -= 1 }
     }
 
+    func apply(_ preset: TeamStylePreset) {
+        switch preset {
+        case .balanced: (weight, speed, size) = (3, 3, 3)
+        case .powerful: (weight, speed, size) = (5, 2, 2)
+        case .fast: (weight, speed, size) = (2, 5, 2)
+        case .large: (weight, speed, size) = (2, 2, 5)
+        }
+    }
+
     func makeCustomTeam() -> CustomTeam {
         CustomTeam(name: name.trimmingCharacters(in: .whitespacesAndNewlines),
                    primaryHex: primaryHex, secondaryHex: secondaryHex,
@@ -84,29 +106,88 @@ struct TeamCreatorView: View {
 
     var body: some View {
         ZStack {
-            Palette.bgPrimary.ignoresSafeArea()
+            ArenaBackground(primaryTint: Color(hex: model.primaryHex),
+                            secondaryTint: Color(hex: model.secondaryHex))
             ScrollView {
                 VStack(spacing: Spacing.l) {
-                    preview
-                    nameSection
-                    colorSection
-                    shapeSection
-                    patternSection
-                    statSection
-                    saveSection
+                    identityCard
+                    appearanceCard
+                    statCard
                 }
-                .padding(Spacing.l)
+                .padding(.horizontal, Spacing.l)
+                .padding(.top, Spacing.s)
+                .padding(.bottom, 112)
             }
+            .scrollIndicators(.hidden)
         }
+        .safeAreaInset(edge: .top) { previewBar }
+        .safeAreaInset(edge: .bottom) { saveBar }
         .navigationTitle("creator.title")
         .navigationBarTitleDisplayMode(.inline)
     }
 
     // MARK: Preview
 
-    private var preview: some View {
-        TeamBadgeView(team: model.previewTeam, size: 96)
-            .padding(.top, Spacing.s)
+    private var previewBar: some View {
+        HStack(spacing: Spacing.m) {
+            TeamBadgeView(team: model.previewTeam, size: 62)
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Text("creator.preview.live")
+                    .font(.caption)
+                    .foregroundStyle(Palette.accent)
+                    .textCase(.uppercase)
+                Text(model.name.isEmpty ? String(localized: "creator.preview.placeholder") : model.name)
+                    .font(.headline)
+                    .foregroundStyle(Palette.textPrimary)
+                    .lineLimit(1)
+                Text(model.previewTeam.short)
+                    .font(.label)
+                    .foregroundStyle(Palette.textSecondary)
+            }
+            Spacer()
+            HStack(spacing: -5) {
+                Circle().fill(Color(hex: model.primaryHex)).frame(width: 24, height: 24)
+                Circle().fill(Color(hex: model.secondaryHex)).frame(width: 24, height: 24)
+                    .overlay(Circle().stroke(Palette.borderStrong))
+            }
+        }
+        .padding(.horizontal, Spacing.l)
+        .padding(.vertical, Spacing.s)
+        .background(.ultraThinMaterial)
+        .overlay(alignment: .bottom) { Rectangle().fill(Palette.borderSubtle).frame(height: 1) }
+    }
+
+    private var identityCard: some View {
+        ArenaSurface {
+            VStack(alignment: .leading, spacing: Spacing.m) {
+                ArenaSectionHeader(title: "creator.section.identity", eyebrow: "creator.step.one")
+                nameSection
+                colorSection
+            }
+        }
+    }
+
+    private var appearanceCard: some View {
+        ArenaSurface {
+            VStack(alignment: .leading, spacing: Spacing.m) {
+                ArenaSectionHeader(title: "creator.section.appearance", eyebrow: "creator.step.two")
+                shapeSection
+                patternSection
+            }
+        }
+    }
+
+    private var statCard: some View {
+        ArenaSurface {
+            VStack(alignment: .leading, spacing: Spacing.m) {
+                ArenaSectionHeader(title: "creator.section.stats", eyebrow: "creator.step.three")
+                Text("creator.stats.help")
+                    .font(.caption)
+                    .foregroundStyle(Palette.textSecondary)
+                presetPicker
+                statSection
+            }
+        }
     }
 
     // MARK: Name
@@ -118,7 +199,8 @@ struct TeamCreatorView: View {
                 .foregroundStyle(Palette.textPrimary)
                 .textInputAutocapitalization(.words)
                 .padding(Spacing.m)
-                .background(Palette.bgElevated, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
+                .background(Palette.bgDeep.opacity(0.72), in: RoundedRectangle(cornerRadius: Radius.button, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: Radius.button).stroke(Palette.borderSubtle))
             if let failure = model.nameFailure, !model.name.isEmpty {
                 Text(LocalizedStringKey(failure.messageKey))
                     .font(.label)
@@ -197,11 +279,10 @@ struct TeamCreatorView: View {
     private var statSection: some View {
         VStack(alignment: .leading, spacing: Spacing.s) {
             HStack {
-                sectionTitle("creator.section.stats")
-                Spacer()
                 Text("creator.remaining \(model.remainingPoints)")
-                    .font(.label)
-                    .foregroundStyle(model.remainingPoints == 0 ? Palette.textSecondary : Palette.accent)
+                    .font(.caption)
+                    .foregroundStyle(model.remainingPoints == 0 ? Palette.accent : Palette.accentWarning)
+                Spacer()
             }
             StatStepperRow(titleKey: "creator.stat.weight", level: model.weight,
                            canDec: model.canDecrement(model.weight), canInc: model.canIncrement(model.weight),
@@ -215,22 +296,37 @@ struct TeamCreatorView: View {
         }
     }
 
+    private var presetPicker: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: Spacing.s) {
+                ForEach(TeamStylePreset.allCases, id: \.self) { preset in
+                    Button { model.apply(preset) } label: {
+                        Text(preset.titleKey)
+                            .font(.caption)
+                            .foregroundStyle(Palette.textPrimary)
+                            .padding(.horizontal, Spacing.m)
+                            .frame(minHeight: 40)
+                            .background(Palette.bgElevatedStrong, in: Capsule())
+                            .overlay(Capsule().stroke(Palette.borderStrong))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
     // MARK: Save
 
-    private var saveSection: some View {
+    private var saveBar: some View {
         VStack(spacing: Spacing.s) {
             Button(action: save) {
-                Text("creator.save")
-                    .font(.titleXL)
-                    .foregroundStyle(Palette.bgPrimary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, Spacing.m)
-                    .background(
-                        (model.canSave && slotAvailable) ? Palette.accent : Palette.arenaLine,
-                        in: RoundedRectangle(cornerRadius: Radius.button, style: .continuous)
-                    )
+                HStack {
+                    Text("creator.save")
+                    Spacer()
+                    Image(systemName: "checkmark")
+                }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(ArenaButtonStyle(kind: .primary))
             .disabled(!model.canSave || !slotAvailable)
 
             if !slotAvailable {
@@ -239,6 +335,10 @@ struct TeamCreatorView: View {
                     .foregroundStyle(Palette.textSecondary)
             }
         }
+        .padding(.horizontal, Spacing.l)
+        .padding(.vertical, Spacing.s)
+        .background(.ultraThinMaterial)
+        .overlay(alignment: .top) { Rectangle().fill(Palette.borderSubtle).frame(height: 1) }
     }
 
     private func save() {
@@ -249,7 +349,7 @@ struct TeamCreatorView: View {
     }
 
     private func sectionTitle(_ key: LocalizedStringKey) -> some View {
-        Text(key).font(.label).foregroundStyle(Palette.textSecondary)
+        Text(key).font(.sectionLabel).foregroundStyle(Palette.textPrimary)
     }
 }
 
@@ -267,16 +367,29 @@ private struct SwatchGrid: View {
         LazyVGrid(columns: columns, spacing: Spacing.s) {
             ForEach(CreatorPalette.colors, id: \.self) { hex in
                 let isDisabled = hex.caseInsensitiveCompare(disabledHex ?? "") == .orderedSame
-                Circle()
-                    .fill(Color(hex: hex))
-                    .frame(height: 34)
-                    .overlay(
-                        Circle().strokeBorder(
-                            selected == hex ? Palette.accent : Palette.arenaLine,
-                            lineWidth: selected == hex ? 3 : 1)
-                    )
-                    .opacity(isDisabled ? 0.25 : 1)
-                    .onTapGesture { if !isDisabled { selected = hex } }
+                Button { if !isDisabled { selected = hex } } label: {
+                    Circle()
+                        .fill(Color(hex: hex))
+                        .frame(height: 34)
+                        .overlay(
+                            Circle().strokeBorder(
+                                selected == hex ? Palette.accent : Palette.arenaLine,
+                                lineWidth: selected == hex ? 3 : 1)
+                        )
+                        .overlay {
+                            if selected == hex {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 12, weight: .black))
+                                    .foregroundStyle(.white)
+                                    .shadow(color: .black, radius: 2)
+                            }
+                        }
+                }
+                .buttonStyle(.plain)
+                .disabled(isDisabled)
+                .opacity(isDisabled ? 0.25 : 1)
+                .accessibilityLabel(Text(verbatim: hex))
+                .accessibilityAddTraits(selected == hex ? .isSelected : [])
             }
         }
     }
@@ -298,10 +411,10 @@ private struct SelectableChip<Content: View>: View {
         Button(action: action) {
             content
                 .frame(width: 44, height: 44)
-                .background(Palette.bgElevated, in: RoundedRectangle(cornerRadius: Radius.badge, style: .continuous))
+                .background(Palette.bgDeep.opacity(0.7), in: RoundedRectangle(cornerRadius: Radius.badge, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: Radius.badge, style: .continuous)
-                        .strokeBorder(isSelected ? Palette.accent : Color.clear, lineWidth: 2)
+                        .strokeBorder(isSelected ? Palette.accent : Palette.borderSubtle, lineWidth: isSelected ? 2 : 1)
                 )
         }
         .buttonStyle(.plain)

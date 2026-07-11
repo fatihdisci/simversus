@@ -159,7 +159,10 @@ final class MatchSimulation {
     // MARK: Public read-only state
 
     var displayMinute: Int {
-        min(Int(config.duration), max(1, Int(matchClock) + 1))
+        guard config.duration > 0 else { return PhysicsConstants.displayMatchMinutes }
+        let progress = min(1, max(0, matchClock / config.duration))
+        return min(PhysicsConstants.displayMatchMinutes,
+                   max(1, Int(progress * Double(PhysicsConstants.displayMatchMinutes)) + 1))
     }
 
     var isFirstHalf: Bool { matchClock < config.duration / 2 }
@@ -423,6 +426,7 @@ final class MatchSimulation {
             ball.velocity = ball.velocity - inwardNormal * ((1 + PhysicsConstants.ballToWallRestitution) * velocityAlongNormal)
         }
         enforceMinimumSeparation(on: &ball.velocity, awayFrom: inwardNormal)
+        dampenTangentialWallMotion(on: &ball.velocity, normal: inwardNormal)
         let separatedBoundary = max(0, boundary - PhysicsConstants.wallSeparationInset)
         ball.position = ball.position * (separatedBoundary / distance)
 
@@ -504,6 +508,13 @@ final class MatchSimulation {
         let separationSpeed = velocity.dot(normal)
         guard separationSpeed < PhysicsConstants.minimumWallSeparationSpeed else { return }
         velocity = velocity + normal * (PhysicsConstants.minimumWallSeparationSpeed - separationSpeed)
+    }
+
+    private func dampenTangentialWallMotion(on velocity: inout CGPoint, normal: CGPoint) {
+        let normalSpeed = velocity.dot(normal)
+        let tangentialVelocity = velocity - normal * normalSpeed
+        velocity = normal * normalSpeed
+            + tangentialVelocity * PhysicsConstants.arenaWallTangentRetention
     }
 
     private func hasCrossedGoalLine(_ ball: Disc) -> Bool {

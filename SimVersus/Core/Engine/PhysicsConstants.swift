@@ -25,7 +25,10 @@ enum PhysicsConstants {
     static let arenaWallRestitution: CGFloat = 0.9
     /// Minimum speed directed away from a wall after contact. Prevents shallow
     /// grazing hits from visually sticking to and sliding around the ring.
-    static let minimumWallSeparationSpeed: CGFloat = 48
+    static let minimumWallSeparationSpeed: CGFloat = 105
+    /// Fraction of tangential velocity retained after an arena-wall collision.
+    /// Gives the rounded wall a little friction so shallow hits visibly rebound.
+    static let arenaWallTangentRetention: CGFloat = 0.72
     /// Tiny positional inset after a wall collision, avoiding repeat contact on
     /// the immediately following fixed step due to floating-point tolerance.
     static let wallSeparationInset: CGFloat = 0.75
@@ -121,8 +124,10 @@ enum PhysicsConstants {
 
     // MARK: Match flow
 
-    /// Real seconds of play → shown as 90 minutes (1 s = 1 min).
-    static let matchDuration: TimeInterval = 90
+    /// Total real-time match duration. The HUD maps this interval onto 90 match minutes.
+    static let matchDuration: TimeInterval = 30
+    /// Regulation minutes shown by the HUD regardless of real-time duration.
+    static let displayMatchMinutes: Int = 90
     /// Duration of the non-blocking half-time announcement.
     static let halfTimePause: TimeInterval = 1.8
     /// Duration of the non-blocking goal overlay + celebration.

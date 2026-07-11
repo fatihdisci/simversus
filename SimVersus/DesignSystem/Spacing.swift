@@ -21,12 +21,16 @@ enum Spacing {
 
 /// Corner radii (DESIGN_TOKENS.md).
 enum Radius {
+    /// Large hero panels.
+    static let hero: CGFloat = 28
     /// Cards / sheets.
-    static let card: CGFloat = 16
+    static let card: CGFloat = 20
     /// Buttons.
     static let button: CGFloat = 14
     /// Badges.
     static let badge: CGFloat = 12
+    /// Pills and status capsules.
+    static let pill: CGFloat = 999
 }
 
 /// Layout constants.
