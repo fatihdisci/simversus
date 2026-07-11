@@ -37,4 +37,18 @@ enum Radius {
 enum Layout {
     /// Minimum touch-target size (Apple HIG / DESIGN_TOKENS.md).
     static let minTouchTarget: CGFloat = 44
+
+    // MARK: Call-to-action
+
+    /// Standard height of a hero CTA (Maçı Başlat / Başlama Vuruşu / Rövanş).
+    /// Every primary and secondary CTA shares it so buttons never drift per screen.
+    static let ctaMinHeight: CGFloat = 56
+    /// Balanced horizontal inset for CTA content — keeps the leading label off the
+    /// left edge and the trailing icon off the right edge instead of hugging them.
+    static let ctaContentPadding: CGFloat = Spacing.l
+    /// Diameter of a CTA's trailing icon accessory. Sized to the button height so
+    /// the icon reads as an intentional accessory, not a glyph pinned to the edge.
+    static let ctaAccessory: CGFloat = 30
+    /// Point size of the glyph inside the trailing accessory.
+    static let ctaAccessoryIcon: CGFloat = 15
 }

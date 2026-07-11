@@ -57,8 +57,8 @@ struct HomeView: View {
     }
 
     private var actionPanel: some View {
-        ArenaSurface {
-            VStack(spacing: Spacing.m) {
+        ArenaSurface(padding: Spacing.l) {
+            VStack(spacing: Spacing.l) {
                 HStack(spacing: Spacing.s) {
                     Label("home.meta.spectator", systemImage: "eye.fill")
                     Spacer()
@@ -69,22 +69,17 @@ struct HomeView: View {
                 .font(.caption)
                 .foregroundStyle(Palette.textSecondary)
 
-                Button(action: onPlay) {
-                    HStack {
-                        Text("home.play")
-                        Spacer()
-                        Image(systemName: "arrow.right")
-                    }
-                }
-                .buttonStyle(ArenaButtonStyle(kind: .primary))
+                VStack(spacing: Spacing.s) {
+                    ArenaCTAButton(title: "home.play", systemImage: "arrow.right", action: onPlay)
 
-                Button(action: {}) {
-                    Text("home.removeAds")
-                        .font(.sectionLabel)
-                        .foregroundStyle(Palette.textSecondary)
-                        .frame(maxWidth: .infinity, minHeight: Layout.minTouchTarget)
+                    Button(action: {}) {
+                        Text("home.removeAds")
+                            .font(.caption)
+                            .foregroundStyle(Palette.textTertiary)
+                            .frame(maxWidth: .infinity, minHeight: Layout.minTouchTarget)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
         }
     }

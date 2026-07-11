@@ -85,7 +85,8 @@ struct ArenaButtonStyle: ButtonStyle {
         configuration.label
             .font(.button)
             .foregroundStyle(foreground)
-            .frame(maxWidth: .infinity, minHeight: 56)
+            .padding(.horizontal, Layout.ctaContentPadding)
+            .frame(maxWidth: .infinity, minHeight: Layout.ctaMinHeight)
             .background(background(configuration.isPressed),
                         in: RoundedRectangle(cornerRadius: Radius.button, style: .continuous))
             .overlay(
@@ -117,6 +118,47 @@ struct ArenaButtonStyle: ButtonStyle {
         case .secondary: return Palette.borderStrong
         case .destructive: return Palette.danger.opacity(0.65)
         }
+    }
+}
+
+/// A hero call-to-action with a leading title and an optically balanced trailing
+/// icon accessory. Unifies every primary/secondary CTA of the app — Maçı Başlat,
+/// Başlama Vuruşu, Rövanş, Yeni Maç — into a single family so text weight, height,
+/// corner radius, internal padding and icon placement never drift per screen.
+///
+/// The primary variant wraps the trailing glyph in a subtle chip so it reads as a
+/// deliberate accessory; the lighter secondary variant shows the glyph bare, which
+/// keeps the same leading-title / trailing-icon structure at a lower visual weight.
+struct ArenaCTAButton: View {
+    let title: LocalizedStringKey
+    var systemImage: String?
+    var kind: ArenaButtonKind = .primary
+    var isEnabled: Bool = true
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: Spacing.s) {
+                Text(title)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+                if let systemImage {
+                    Spacer(minLength: Spacing.s)
+                    Image(systemName: systemImage)
+                        .font(.system(size: Layout.ctaAccessoryIcon, weight: .bold))
+                        .frame(width: Layout.ctaAccessory, height: Layout.ctaAccessory)
+                        .background(accessoryFill, in: Circle())
+                }
+            }
+        }
+        .buttonStyle(ArenaButtonStyle(kind: kind))
+        .disabled(!isEnabled)
+    }
+
+    /// Primary CTAs carry a chip behind the glyph (dark on the neon fill);
+    /// secondary/destructive keep the glyph bare for a lighter read.
+    private var accessoryFill: Color {
+        kind == .primary ? Palette.bgDeep.opacity(0.15) : Color.clear
     }
 }
 

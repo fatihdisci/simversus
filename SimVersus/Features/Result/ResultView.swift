@@ -83,21 +83,19 @@ struct ResultView: View {
 
     private var actionBar: some View {
         VStack(spacing: Spacing.s) {
-            Button(action: onRematch) {
-                HStack {
-                    Text("result.rematch")
-                    Spacer()
-                    Image(systemName: "arrow.counterclockwise")
-                }
-            }
-            .buttonStyle(ArenaButtonStyle(kind: .primary))
+            ArenaCTAButton(title: "result.rematch",
+                           systemImage: "arrow.counterclockwise",
+                           kind: .primary,
+                           action: onRematch)
 
-            Button("result.newMatch", action: onNewMatch)
-                .buttonStyle(ArenaButtonStyle(kind: .secondary))
+            ArenaCTAButton(title: "result.newMatch",
+                           systemImage: "forward.fill",
+                           kind: .secondary,
+                           action: onNewMatch)
 
             Button("result.home", action: onHome)
                 .font(.sectionLabel)
-                .foregroundStyle(Palette.textSecondary)
+                .foregroundStyle(Palette.textTertiary)
                 .frame(maxWidth: .infinity, minHeight: Layout.minTouchTarget)
                 .buttonStyle(.plain)
         }

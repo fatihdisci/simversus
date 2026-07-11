@@ -126,17 +126,12 @@ struct TeamSelectView: View {
             Rectangle()
                 .fill(Palette.borderSubtle)
                 .frame(height: 1)
-            Button {
+            ArenaCTAButton(title: matchup.isReady ? "teamselect.start" : "teamselect.start.disabled",
+                           systemImage: matchup.isReady ? "play.fill" : nil,
+                           kind: .primary,
+                           isEnabled: matchup.isReady) {
                 if let home = matchup.home, let away = matchup.away { onStart(home, away) }
-            } label: {
-                HStack {
-                    Text(matchup.isReady ? "teamselect.start" : "teamselect.start.disabled")
-                    Spacer()
-                    Image(systemName: "play.fill")
-                }
             }
-            .buttonStyle(ArenaButtonStyle(kind: .primary))
-            .disabled(!matchup.isReady)
             .padding(.horizontal, Spacing.l)
             .padding(.vertical, Spacing.s)
         }
