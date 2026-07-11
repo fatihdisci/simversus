@@ -50,6 +50,10 @@ struct ResultHeroCard: View {
 struct ResultGoalRow: View {
     let goal: Goal
     let team: Team?
+    /// Cumulative home–away score immediately after this goal, so the list
+    /// reads as a broadcast-style progression rather than isolated events.
+    let homeScoreAfter: Int
+    let awayScoreAfter: Int
 
     var body: some View {
         HStack(spacing: Spacing.m) {
@@ -61,14 +65,22 @@ struct ResultGoalRow: View {
                 TeamOrbView(team: team, size: 30)
                 Text(team.short)
                     .font(.label)
-                    .foregroundStyle(team.primaryColor)
+                    // Fixed, always-legible ink — never the team's own colour,
+                    // which can be too close to the dark surface to read
+                    // (mirrors TeamBadgeView's short-code convention).
+                    .foregroundStyle(Palette.textPrimary)
             } else {
                 Image(systemName: "questionmark.circle")
                     .foregroundStyle(Palette.textSecondary)
             }
             Spacer()
             Image(systemName: "soccerball")
+                .font(.caption)
                 .foregroundStyle(Palette.textTertiary)
+            Text(verbatim: "\(homeScoreAfter)–\(awayScoreAfter)")
+                .font(.label)
+                .foregroundStyle(Palette.textSecondary)
+                .frame(width: 40, alignment: .trailing)
         }
         .padding(.horizontal, Spacing.m)
         .frame(minHeight: 68)

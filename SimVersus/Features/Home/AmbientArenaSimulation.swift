@@ -1,9 +1,9 @@
 //  AmbientArenaSimulation.swift
 //  Features/Home
 //
-//  A tiny, self-contained physics loop for the Home hero: a few neutral balls
-//  bouncing inside a rotating circular ring. Purely decorative — no teams, no
-//  goals, no score, no power-ups.
+//  A tiny, self-contained physics loop for the Home hero: a single neutral
+//  ball bouncing inside a rotating circular ring. Purely decorative — no
+//  teams, no goals, no score, no power-ups.
 //
 //  The vector helpers and the integrate / speed-normalize / disc-disc collide /
 //  wall-bounce math are deliberately mirrored from `MatchSimulation.swift` and
@@ -51,7 +51,7 @@ struct AmbientBall {
         // Heavier orbs feel weightier in a collision (area-proportional mass).
         self.mass = radius * radius / (AmbientArenaSimulation.Constants.baseRadius * AmbientArenaSimulation.Constants.baseRadius)
         self.colorIndex = colorIndex
-        self.targetSpeed = AmbientArenaSimulation.Constants.targetSpeeds[colorIndex]
+        self.targetSpeed = AmbientArenaSimulation.Constants.targetSpeed
         self.trail = Array(repeating: position, count: AmbientArenaSimulation.Constants.trailCapacity)
     }
 
@@ -95,10 +95,10 @@ final class AmbientArenaSimulation {
         static let maxStepsPerFrame = 4
         static let maxFrameDelta: TimeInterval = 1.0 / 20.0
 
-        /// Three odd-sized orbs read as organic; two would look like "vs".
-        static let radii: [CGFloat] = [9, 11, 13]
-        /// Calm cruising speeds (sim units/s) — an arena crossing takes ~6–8 s.
-        static let targetSpeeds: [CGFloat] = [34, 30, 26]
+        /// Single orb radius (sim units).
+        static let ballRadius: CGFloat = 13
+        /// Brisk cruising speed (sim units/s) — an arena crossing takes ~2–3 s.
+        static let targetSpeed: CGFloat = 50
         /// Gentle blend back toward the cruising speed (softer than the match).
         static let speedBlend: CGFloat = 0.03
         /// Perfectly elastic — energy-neutral, so motion never dies down.
@@ -108,8 +108,8 @@ final class AmbientArenaSimulation {
 
         /// Decorative ring rotation (rad/s). The dashed ring and the notches
         /// spin at different rates for cheap parallax depth.
-        static let dashRingSpeed: CGFloat = 0.18
-        static let notchSpeed: CGFloat = 0.07
+        static let dashRingSpeed: CGFloat = 0.32
+        static let notchSpeed: CGFloat = 0.13
 
         static let trailCapacity = 12
         /// Sample the trail every N steps → ~40 samples/s → ~0.3 s streak.
@@ -125,24 +125,20 @@ final class AmbientArenaSimulation {
     private var stepCounter = 0
 
     init() {
-        // Deterministic starting formation (no RNG): three orbs 120° apart on a
-        // mid-radius circle, each launched tangentially. This doubles as the
-        // static Reduce-Motion frame, so it is composed to look good at rest.
+        // Deterministic starting position (no RNG): one orb launched tangentially
+        // from a mid-radius circle. This doubles as the static Reduce-Motion
+        // frame, so it is composed to look good at rest. A circular billiard
+        // launched off-tangent never retraces the same chord, so a single ball
+        // still reads as lively rather than orbiting in a fixed loop.
         let spawnRadius = Constants.simRadius * 0.55
-        var seeded: [AmbientBall] = []
-        for i in 0..<3 {
-            let angle = CGFloat(i) * (2 * .pi / 3) - .pi / 2
-            let position = CGPoint(x: cos(angle) * spawnRadius, y: sin(angle) * spawnRadius)
-            // Tangent = normal rotated 90°, alternating direction per orb.
-            let sign: CGFloat = i == 1 ? -1 : 1
-            let tangent = CGPoint(x: -sin(angle) * sign, y: cos(angle) * sign)
-            let velocity = tangent * Constants.targetSpeeds[i]
-            seeded.append(AmbientBall(position: position,
-                                      velocity: velocity,
-                                      radius: Constants.radii[i],
-                                      colorIndex: i))
-        }
-        balls = seeded
+        let angle = -CGFloat.pi / 2
+        let position = CGPoint(x: cos(angle) * spawnRadius, y: sin(angle) * spawnRadius)
+        let tangent = CGPoint(x: -sin(angle), y: cos(angle))
+        let velocity = tangent * Constants.targetSpeed
+        balls = [AmbientBall(position: position,
+                             velocity: velocity,
+                             radius: Constants.ballRadius,
+                             colorIndex: 1)]
     }
 
     /// Call when unpausing so the first resumed frame has dt = 0 (no teleport
@@ -176,7 +172,8 @@ final class AmbientArenaSimulation {
             normalizeSpeed(&balls[i])
         }
 
-        // Pairwise elastic collisions (only 3 pairs).
+        // Pairwise elastic collisions. A no-op today (single ball, zero pairs);
+        // kept generic so a future formation change is a data-only edit.
         for a in 0..<balls.count {
             for b in (a + 1)..<balls.count {
                 collide(a, b)

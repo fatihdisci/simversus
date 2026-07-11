@@ -47,18 +47,17 @@ struct ResultView: View {
                     .foregroundStyle(Palette.textPrimary)
             }
             Spacer()
-            Image(systemName: "checkmark.seal.fill")
+            Image(systemName: winnerTeam != nil ? "trophy.fill" : "equal.circle.fill")
                 .font(.system(size: 30))
-                .foregroundStyle(Palette.accent)
-                .shadow(color: Palette.accent.opacity(0.5), radius: 8)
+                .foregroundStyle(headerAccent)
+                .shadow(color: headerAccent.opacity(0.5), radius: 8)
         }
     }
 
     @ViewBuilder
     private var goalSummary: some View {
         VStack(alignment: .leading, spacing: Spacing.m) {
-            ArenaSectionHeader(title: "result.goals",
-                               trailingText: result.goals.isEmpty ? "result.noGoals" : nil)
+            ArenaSectionHeader(title: "result.goals")
             if result.goals.isEmpty {
                 ArenaSurface {
                     Label("result.noGoals", systemImage: "minus.circle")
@@ -70,7 +69,10 @@ struct ResultView: View {
                 ArenaSurface(padding: 0) {
                     VStack(spacing: 0) {
                         ForEach(result.goals.indices, id: \.self) { index in
-                            ResultGoalRow(goal: result.goals[index], team: team(for: result.goals[index]))
+                            ResultGoalRow(goal: result.goals[index],
+                                          team: team(for: result.goals[index]),
+                                          homeScoreAfter: runningScores[index].home,
+                                          awayScoreAfter: runningScores[index].away)
                             if index != result.goals.indices.last {
                                 Rectangle().fill(Palette.borderSubtle).frame(height: 1)
                             }
@@ -79,6 +81,26 @@ struct ResultView: View {
                 }
             }
         }
+    }
+
+    /// Cumulative home/away score after each goal, in chronological order —
+    /// precomputed once so each row is a plain lookup.
+    private var runningScores: [(home: Int, away: Int)] {
+        var home = 0, away = 0
+        return result.goals.map { goal in
+            if goal.teamID == config.homeTeam.id { home += 1 }
+            else if goal.teamID == config.awayTeam.id { away += 1 }
+            return (home, away)
+        }
+    }
+
+    /// A fixed palette colour rather than the winning team's — team colours
+    /// are chosen freely in the creator/`teams.json` and can be near-black
+    /// (e.g. a "Black-White" kit), which would make a team-tinted glyph
+    /// illegible against the dark background. A draw stays neutral so it
+    /// never falsely reads as a celebration.
+    private var headerAccent: Color {
+        winnerTeam != nil ? Palette.accent : Palette.textSecondary
     }
 
     private var actionBar: some View {

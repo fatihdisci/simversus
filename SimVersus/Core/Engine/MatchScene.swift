@@ -481,12 +481,20 @@ final class MatchScene: SKScene {
         if lastUpdateTime == 0 { lastUpdateTime = currentTime }
         // Cap delta hard: after a hitch/backgrounding the sim clock slips slightly
         // instead of bursting many catch-up steps in one frame (chained stutter).
-        let delta = min(currentTime - lastUpdateTime, 1.0 / 20.0)
+        // `speed` (SKNode/SKScene, default 1) carries the Settings match-speed
+        // choice and applies uniformly below to physics steps, particles and
+        // camera shake — it only changes how fast real time is consumed, never
+        // the deterministic fixed-step sequence itself (CONSTITUTION §11 holds:
+        // same seed still produces the same steps in the same order).
+        let delta = min(currentTime - lastUpdateTime, 1.0 / 20.0) * TimeInterval(speed)
         lastUpdateTime = currentTime
 
         accumulator += delta * TimeInterval(PhysicsConstants.maxSimSpeed)
+        // Scale the per-frame step budget with speed so 2×/4× can actually keep
+        // the accumulator from perpetually running behind at a steady 60 fps.
+        let maxStepsThisFrame = 4 * max(1, Int(speed.rounded(.up)))
         var stepsThisFrame = 0
-        while accumulator >= PhysicsConstants.fixedTimeStep, stepsThisFrame < 4, !simulation.isFinished {
+        while accumulator >= PhysicsConstants.fixedTimeStep, stepsThisFrame < maxStepsThisFrame, !simulation.isFinished {
             simulation.step()
             // Spawn collision particles from events generated this step.
             spawnCollisionEffects()
@@ -495,7 +503,7 @@ final class MatchScene: SKScene {
         }
         // Drop leftover debt beyond one frame's budget so a sustained slow
         // stretch can never build an ever-growing catch-up queue.
-        accumulator = min(accumulator, PhysicsConstants.fixedTimeStep * 4)
+        accumulator = min(accumulator, PhysicsConstants.fixedTimeStep * TimeInterval(maxStepsThisFrame))
 
         // Visual effects update (frame-rate dependent, not sim-step).
         updateParticles(dt: CGFloat(delta))

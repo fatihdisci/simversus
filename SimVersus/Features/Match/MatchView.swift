@@ -22,11 +22,12 @@ final class MatchViewModel: ObservableObject {
     private var flashDismiss: DispatchWorkItem?
     private var halfTimeDismiss: DispatchWorkItem?
 
-    init(config: MatchConfig, onMatchEnded: @escaping (MatchResult) -> Void) {
+    init(config: MatchConfig, speedMultiplier: Double, onMatchEnded: @escaping (MatchResult) -> Void) {
         homeTeam = config.homeTeam
         awayTeam = config.awayTeam
         matchEnded = onMatchEnded
         scene = MatchScene(config: config)
+        scene.speed = CGFloat(speedMultiplier)
         scene.onHUDUpdate = { [weak self] snapshot in self?.hud = snapshot }
         scene.onGoalScored = { [weak self] in self?.flashGoal() }
         scene.onHalfTime = { [weak self] in self?.announceHalfTime() }
@@ -67,9 +68,12 @@ struct MatchView: View {
     @State private var pauseStateBeforeExitPrompt: Bool?
     private let onExit: () -> Void
 
-    init(config: MatchConfig, onExit: @escaping () -> Void, onMatchEnded: @escaping (MatchResult) -> Void) {
+    init(config: MatchConfig, speedMultiplier: Double = 1, onExit: @escaping () -> Void,
+         onMatchEnded: @escaping (MatchResult) -> Void) {
         self.onExit = onExit
-        _model = StateObject(wrappedValue: MatchViewModel(config: config, onMatchEnded: onMatchEnded))
+        _model = StateObject(wrappedValue: MatchViewModel(config: config,
+                                                           speedMultiplier: speedMultiplier,
+                                                           onMatchEnded: onMatchEnded))
     }
 
     var body: some View {

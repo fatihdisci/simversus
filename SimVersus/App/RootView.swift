@@ -40,7 +40,8 @@ struct RootView: View {
                 teams: teams,
                 onCreateTeam: { path.append(.teamCreator) },
                 onStart: { home, away in
-                    let config = MatchConfig(homeTeam: home, awayTeam: away)
+                    let config = MatchConfig(homeTeam: home, awayTeam: away,
+                                             duration: appState.matchDuration.seconds)
                     path.append(.match(config))
                 }
             )
@@ -49,7 +50,7 @@ struct RootView: View {
             TeamCreatorView(onDone: { if !path.isEmpty { path.removeLast() } })
 
         case .match(let config):
-            MatchView(config: config, onExit: {
+            MatchView(config: config, speedMultiplier: appState.matchSpeed.multiplier, onExit: {
                 path = [.teamSelect]
             }) { result in
                 appState.matchesPlayedCount += 1
@@ -81,7 +82,8 @@ struct RootView: View {
     /// `removeLast()` + `append(.result)` so the back-swipe lands on Home.
     private func rematch(from config: MatchConfig) {
         let newConfig = MatchConfig(homeTeam: config.homeTeam,
-                                    awayTeam: config.awayTeam)
+                                    awayTeam: config.awayTeam,
+                                    duration: appState.matchDuration.seconds)
         path = [.match(newConfig)]
     }
 }

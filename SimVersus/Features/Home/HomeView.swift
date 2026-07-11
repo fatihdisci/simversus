@@ -6,6 +6,9 @@ import SwiftUI
 struct HomeView: View {
     let onPlay: () -> Void
 
+    @EnvironmentObject private var appState: AppState
+    @State private var showSettings = false
+
     var body: some View {
         ZStack {
             ArenaBackground()
@@ -20,6 +23,9 @@ struct HomeView: View {
             .padding(.horizontal, Spacing.l)
             .padding(.top, Spacing.m)
             .padding(.bottom, Spacing.xl)
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView(onDone: { showSettings = false })
         }
     }
 
@@ -36,6 +42,9 @@ struct HomeView: View {
                     .textCase(.uppercase)
             }
             Spacer()
+            ArenaIconButton(systemName: "gearshape.fill", accessibilityKey: "settings.title") {
+                showSettings = true
+            }
         }
     }
 
@@ -64,7 +73,7 @@ struct HomeView: View {
                     Spacer()
                     Label("home.meta.physics", systemImage: "circle.hexagongrid.fill")
                     Spacer()
-                    Label("home.duration.short", systemImage: "timer")
+                    Label(durationMetaText, systemImage: "timer")
                 }
                 .font(.caption)
                 .foregroundStyle(Palette.textSecondary)
@@ -83,9 +92,15 @@ struct HomeView: View {
             }
         }
     }
+
+    private var durationMetaText: String {
+        let format = NSLocalizedString("match.duration.seconds %d", comment: "")
+        return String.localizedStringWithFormat(format, Int(appState.matchDuration.seconds))
+    }
 }
 
 #Preview {
     HomeView(onPlay: {})
+        .environmentObject(AppState())
         .preferredColorScheme(.dark)
 }
