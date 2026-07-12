@@ -20,6 +20,6 @@ enum AppRoute: Hashable {
     /// Pick "my team" before generating a tournament. Carries the chosen format.
     case tournamentPickMyTeam(TournamentFormat)
     case trophyCabinet
-    case match(MatchConfig, tournamentID: UUID? = nil)
-    case result(MatchResult, MatchConfig, tournamentID: UUID? = nil)
+    case match(MatchConfig, context: MatchContext)
+    case result(MatchResult, MatchConfig, context: MatchContext)
 }

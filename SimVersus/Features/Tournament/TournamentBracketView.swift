@@ -10,7 +10,7 @@ import SwiftData
 
 struct TournamentBracketView: View {
     let tournamentID: UUID
-    let onPlayMatch: (MatchConfig) -> Void
+    let onPlayMatch: (MatchConfig, String) -> Void
 
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \CustomTeam.name) private var customTeams: [CustomTeam]
@@ -212,7 +212,7 @@ struct TournamentBracketView: View {
         } else if isPlayerMatch {
             Button {
                 let config = buildMatchConfig(for: fixture)
-                onPlayMatch(config)
+                onPlayMatch(config, fixture.id)
             } label: {
                 HStack {
                     teamChip(fixture.homeTeamID)
@@ -432,7 +432,7 @@ struct TournamentBracketView: View {
 
 #Preview {
     NavigationStack {
-        TournamentBracketView(tournamentID: UUID(), onPlayMatch: { _ in })
+        TournamentBracketView(tournamentID: UUID(), onPlayMatch: { _, _ in })
     }
     .modelContainer(for: [CustomTeam.self, MatchRecord.self, TournamentState.self],
                     inMemory: true)
