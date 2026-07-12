@@ -19,6 +19,12 @@ enum AppRoute: Hashable {
     case tournamentBracket(tournamentID: UUID)
     /// Pick "my team" before generating a tournament. Carries the chosen format.
     case tournamentPickMyTeam(TournamentFormat)
+    case worldArenaIntro
+    case worldArenaTeamPicker
+    case worldArenaGroups(tournamentID: UUID)
+    case worldArenaBestThirds(tournamentID: UUID)
+    case worldArenaKnockout(tournamentID: UUID)
+    case worldArenaChampion(tournamentID: UUID)
     case trophyCabinet
     case match(MatchConfig, context: MatchContext)
     case result(MatchResult, MatchConfig, context: MatchContext)

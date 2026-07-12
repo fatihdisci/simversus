@@ -3636,6 +3636,167 @@
         }
       }
     },
+    "common.continue" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Continue" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Devam Et" } }
+      }
+    },
+    "tournament.lobby.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Tournaments" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Turnuvalar" } }
+      }
+    },
+    "tournament.lobby.subtitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Choose a format, represent your team, and chase the trophy." } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Formatını seç, takımını temsil et ve kupanın peşinden git." } }
+      }
+    },
+    "tournament.lobby.standard" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Standard Tournaments" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Standart Turnuvalar" } }
+      }
+    },
+    "tournament.lobby.special" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Special Tournaments" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Özel Turnuvalar" } }
+      }
+    },
+    "tournament.lobby.format.group" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%d teams, %d groups + knockout" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "%d takım, %d grup + eleme" } }
+      }
+    },
+    "tournament.lobby.format.knockout" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%d teams, single elimination" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "%d takım, tek eleme" } }
+      }
+    },
+    "tournament.worldArena.cardStats" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "48 Nations · 12 Groups · 104 Matches" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "48 Ulus · 12 Grup · 104 Maç" } }
+      }
+    },
+    "tournament.worldArena.independent" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "An independent fictional football simulation" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Bağımsız ve kurgusal bir futbol simülasyonu" } }
+      }
+    },
+    "tournament.worldArena.continue" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Continue Tournament" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Turnuvaya Devam Et" } }
+      }
+    },
+    "tournament.worldArena.progressSaved" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Your World Arena progress is saved." } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Dünya Arenası ilerlemen kaydedildi." } }
+      }
+    },
+    "tournament.worldArena.chooseHint" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Opens the World Arena introduction" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Dünya Arenası tanıtımını açar" } }
+      }
+    },
+    "tournament.worldArena.chooseNation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Choose Nation" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Ulusunu Seç" } }
+      }
+    },
+    "tournament.worldArena.flagCluster" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "National flags orbiting the World Arena" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Dünya Arenası çevresindeki ulusal bayraklar" } }
+      }
+    },
+    "tournament.worldArena.rule.teams" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "48 nations compete" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "48 ulus mücadele eder" } }
+      }
+    },
+    "tournament.worldArena.rule.groups" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "12 groups of four" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Dörder takımlı 12 grup" } }
+      }
+    },
+    "tournament.worldArena.rule.qualifiers" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Top two and eight best third-placed teams advance" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "İlk iki ve en iyi sekiz üçüncü takım yükselir" } }
+      }
+    },
+    "tournament.worldArena.rule.knockout" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Round of 32 through the Final" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Son 32 turundan Finale" } }
+      }
+    },
+    "tournament.worldArena.picker.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Choose Your Nation" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Ulusunu Seç" } }
+      }
+    },
+    "tournament.worldArena.picker.search" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Search nation or code" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Ulus veya kod ara" } }
+      }
+    },
+    "tournament.worldArena.picker.pot" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Pot %d" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "%d. Torba" } }
+      }
+    },
+    "tournament.worldArena.picker.empty" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No Nations Found" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Ulus Bulunamadı" } }
+      }
+    },
+    "tournament.worldArena.loading" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Loading World Arena…" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Dünya Arenası yükleniyor…" } }
+      }
+    },
     "Turnuva" : {
       "comment" : "A tournament button.",
       "isCommentAutoGenerated" : true

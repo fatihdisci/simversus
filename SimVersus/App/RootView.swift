@@ -66,14 +66,45 @@ struct RootView: View {
             TrophyCabinetView()
 
         case .tournamentLobby:
-            TournamentLobbyView { format in
-                path.append(.tournamentPickMyTeam(format))
-            }
+            TournamentLobbyView(
+                onSelectFormat: { format in
+                    path.append(.tournamentPickMyTeam(format))
+                },
+                onStartWorldArena: { path.append(.worldArenaIntro) },
+                onContinueWorldArena: { tournamentID in
+                    path.append(.worldArenaGroups(tournamentID: tournamentID))
+                })
 
         case .tournamentPickMyTeam(let format):
             TournamentPickMyTeamView(format: format) { state in
                 path.append(.tournamentBracket(tournamentID: state.id))
             }
+
+        case .worldArenaIntro:
+            WorldArenaIntroView {
+                path.append(.worldArenaTeamPicker)
+            }
+
+        case .worldArenaTeamPicker:
+            NationalTeamPickerView { playerTeamID in
+                startWorldArena(playerTeamID: playerTeamID)
+            }
+
+        case .worldArenaGroups(let tournamentID):
+            ProgressView("tournament.worldArena.loading")
+                .task { _ = tournamentID }
+
+        case .worldArenaBestThirds(let tournamentID):
+            ProgressView("tournament.worldArena.loading")
+                .task { _ = tournamentID }
+
+        case .worldArenaKnockout(let tournamentID):
+            ProgressView("tournament.worldArena.loading")
+                .task { _ = tournamentID }
+
+        case .worldArenaChampion(let tournamentID):
+            ProgressView("tournament.worldArena.loading")
+                .task { _ = tournamentID }
 
         case .tournamentBracket(let tournamentID):
             TournamentBracketView(tournamentID: tournamentID,
@@ -187,7 +218,32 @@ struct RootView: View {
         // World Arena destinations are added in Commit 5B/5C. Keeping this
         // centralized avoids duplicating route decisions in MatchView/ResultView.
         guard let tournamentID = context.tournamentID else { path = []; return }
-        path = [.tournamentBracket(tournamentID: tournamentID)]
+        guard case .worldArena(_, _, let stage) = context else { return }
+        switch stage {
+        case .group: path = [.worldArenaGroups(tournamentID: tournamentID)]
+        case .knockout: path = [.worldArenaKnockout(tournamentID: tournamentID)]
+        }
+    }
+
+    private func startWorldArena(playerTeamID: String) {
+        let catalog = NationalTeamStore()
+        let definition = TournamentDefinition.worldArena2026(catalog: catalog)
+        let seed = UInt64.random(in: 1 ... .max)
+        guard let stage = try? TournamentEngine.generateWorldGroupStage(
+            definition: definition,
+            catalog: catalog,
+            tournamentSeed: seed) else { return }
+        let state = TournamentState(
+            format: .grand,
+            playerTeamID: playerTeamID,
+            teams: catalog.allTeams.map(\.id),
+            fixtures: stage.fixtures,
+            competitionID: definition.id,
+            tournamentSeed: seed,
+            groupAssignments: stage.groups)
+        modelContext.insert(state)
+        try? modelContext.save()
+        path = [.worldArenaGroups(tournamentID: state.id)]
     }
 }
 
