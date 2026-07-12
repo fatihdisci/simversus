@@ -9,6 +9,7 @@ struct NationalTeamPickerView: View {
     @State private var selectedTeamID: String?
     @State private var searchText = ""
     @State private var showReplaceConfirmation = false
+    @State private var isStarting = false
     @Query(sort: \TournamentState.startedAt, order: .reverse)
     private var tournaments: [TournamentState]
     private let teams = NationalTeamStore().allTeams
@@ -60,6 +61,7 @@ struct NationalTeamPickerView: View {
                             titleVisibility: .visible) {
             Button("tournament.worldArena.replace.confirm", role: .destructive) {
                 if let selectedTeamID {
+                    isStarting = true
                     onContinue(selectedTeamID, activeWorldArenaID)
                 }
             }
@@ -72,11 +74,12 @@ struct NationalTeamPickerView: View {
     private var continueBar: some View {
         ArenaCTAButton(title: "common.continue",
                        systemImage: "arrow.right",
-                       isEnabled: selectedTeamID != nil) {
+                       isEnabled: selectedTeamID != nil && !isStarting) {
             guard let selectedTeamID else { return }
             if activeWorldArenaID != nil {
                 showReplaceConfirmation = true
             } else {
+                isStarting = true
                 onContinue(selectedTeamID, nil)
             }
         }

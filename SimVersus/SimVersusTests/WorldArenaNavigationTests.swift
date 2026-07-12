@@ -13,6 +13,33 @@ final class WorldArenaNavigationTests: XCTestCase {
         XCTAssertEqual(context.fixtureID, "WA-GA-MD2-M1")
     }
 
+    func testCasualContextHasNoTournamentIdentity() {
+        XCTAssertNil(MatchContext.casual.tournamentID)
+        XCTAssertNil(MatchContext.casual.fixtureID)
+    }
+
+    func testStandardTournamentContextPreservesFixtureIdentity() {
+        let id = UUID()
+        let context = MatchContext.standardTournament(tournamentID: id,
+                                                      fixtureID: "SF-1")
+        XCTAssertEqual(context.tournamentID, id)
+        XCTAssertEqual(context.fixtureID, "SF-1")
+    }
+
+    func testResumeDestinationFollowsPersistedPhase() {
+        let state = TournamentState(format: .grand, playerTeamID: "nation-tr",
+                                    teams: [], fixtures: [],
+                                    competitionID: TournamentDefinition.WorldArena.id)
+        XCTAssertEqual(WorldArenaRouteResolver.destination(for: state),
+                       .worldArenaGroups(tournamentID: state.id))
+        state.setPhase(.knockout)
+        XCTAssertEqual(WorldArenaRouteResolver.destination(for: state),
+                       .worldArenaKnockout(tournamentID: state.id))
+        state.setPhase(.finished)
+        XCTAssertEqual(WorldArenaRouteResolver.destination(for: state),
+                       .worldArenaChampion(tournamentID: state.id))
+    }
+
     func testResultUpdatesExactFixtureWhenTeamsRepeat() throws {
         let fixtures = [
             Fixture(id: "first", homeTeamID: "a", awayTeamID: "b",

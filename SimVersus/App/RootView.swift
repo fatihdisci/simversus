@@ -72,7 +72,7 @@ struct RootView: View {
                 },
                 onStartWorldArena: { path.append(.worldArenaIntro) },
                 onContinueWorldArena: { tournamentID in
-                    path.append(.worldArenaGroups(tournamentID: tournamentID))
+                    resumeWorldArena(tournamentID: tournamentID)
                 })
 
         case .tournamentPickMyTeam(let format):
@@ -278,18 +278,31 @@ struct RootView: View {
     }
 
     private func startWorldArena(playerTeamID: String, replacing tournamentID: UUID?) {
-        if let tournamentID {
+        let oldState: TournamentState? = tournamentID.flatMap { tournamentID in
             let id = tournamentID
             let descriptor = FetchDescriptor<TournamentState>(
                 predicate: #Predicate { $0.id == id })
-            if let old = try? modelContext.fetch(descriptor).first {
-                modelContext.delete(old)
-            }
+            return try? modelContext.fetch(descriptor).first
         }
         guard let state = try? WorldArenaSessionController.create(
             playerTeamID: playerTeamID,
             modelContext: modelContext) else { return }
+        if let oldState {
+            modelContext.delete(oldState)
+            try? modelContext.save()
+        }
         path = [.worldArenaGroups(tournamentID: state.id)]
+    }
+
+    private func resumeWorldArena(tournamentID: UUID) {
+        let id = tournamentID
+        let descriptor = FetchDescriptor<TournamentState>(
+            predicate: #Predicate { $0.id == id })
+        guard let state = try? modelContext.fetch(descriptor).first else {
+            path.append(.worldArenaGroups(tournamentID: tournamentID))
+            return
+        }
+        path.append(WorldArenaRouteResolver.destination(for: state))
     }
 }
 

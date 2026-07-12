@@ -129,7 +129,7 @@ struct WorldArenaFixtureTeams: View {
     var body: some View {
         HStack(spacing: Spacing.l) {
             team(fixture.homeTeamID)
-            Text("vs").font(.caption).foregroundStyle(Palette.textSecondary)
+            Text("common.versus").font(.caption).foregroundStyle(Palette.textSecondary)
             team(fixture.awayTeamID)
         }
         .frame(maxWidth: .infinity)
