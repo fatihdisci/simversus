@@ -37,8 +37,8 @@ final class WorldGroupStandingsTests: XCTestCase {
 
     func testGoalsScoredBeforeWins() {
         // Equal points and GD; A scored more, B has more wins. GF wins the tie.
-        let a = standing("A", p: 3, w: 1, d: 0, l: 1, gf: 8, ga: 6)  // GD +2, GF 8, 1 win
-        let b = standing("B", p: 3, w: 3, d: 0, l: 0, gf: 5, ga: 3)  // GD +2, GF 5, 3 wins
+        let a = standing("A", p: 8, w: 1, d: 6, l: 1, gf: 8, ga: 6)  // 9 pts, GD +2, GF 8, 1 win
+        let b = standing("B", p: 3, w: 3, d: 0, l: 0, gf: 5, ga: 3)  // 9 pts, GD +2, GF 5, 3 wins
         let ranked = TournamentStandingRanker.rank([b, a], context: plainContext())
         XCTAssertEqual(ranked.first?.teamID, "A")
     }
