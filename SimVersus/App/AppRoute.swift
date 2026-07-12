@@ -11,7 +11,6 @@ import Foundation
 
 enum AppRoute: Hashable {
     case home
-    case history
     case teamSelect
     case teamCreator
     case tournamentLobby

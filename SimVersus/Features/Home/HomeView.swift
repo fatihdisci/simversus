@@ -5,7 +5,6 @@ import SwiftUI
 
 struct HomeView: View {
     let onPlay: () -> Void
-    let onHistory: () -> Void
     let onTournament: () -> Void
     let onTrophyCabinet: () -> Void
 
@@ -125,10 +124,9 @@ struct HomeView: View {
         .minimumScaleFactor(0.8)
     }
 
-    /// The three second-level modes as one equal-weight family. Tournament,
-    /// Trophy Cabinet and Match History share a single component and differ only
-    /// by accent — History is no longer greyed-out, and Trophy Cabinet now has a
-    /// properly aligned icon instead of bare yellow text.
+    /// The second-level modes as one equal-weight family. Tournament and Trophy
+    /// Cabinet share a single component and differ only by accent — Trophy
+    /// Cabinet has a properly aligned icon instead of bare yellow text.
     private var modeActions: some View {
         HStack(spacing: Spacing.s) {
             ArenaModeAction(titleKey: "home.tournament",
@@ -139,10 +137,6 @@ struct HomeView: View {
                             systemImage: "display.case",
                             accent: Palette.accentWarning,
                             action: onTrophyCabinet)
-            ArenaModeAction(titleKey: "home.history",
-                            systemImage: "clock.arrow.circlepath",
-                            accent: Palette.info,
-                            action: onHistory)
         }
     }
 
@@ -168,14 +162,14 @@ struct HomeView: View {
 // MARK: - Previews
 
 #Preview("Default") {
-    HomeView(onPlay: {}, onHistory: {}, onTournament: {}, onTrophyCabinet: {})
+    HomeView(onPlay: {}, onTournament: {}, onTrophyCabinet: {})
         .environmentObject(AppState())
         .environmentObject(PurchaseManager.shared)
         .preferredColorScheme(.dark)
 }
 
 #Preview("Compact height") {
-    HomeView(onPlay: {}, onHistory: {}, onTournament: {}, onTrophyCabinet: {})
+    HomeView(onPlay: {}, onTournament: {}, onTrophyCabinet: {})
         .environmentObject(AppState())
         .environmentObject(PurchaseManager.shared)
         .frame(height: 620)
@@ -183,7 +177,7 @@ struct HomeView: View {
 }
 
 #Preview("Large Dynamic Type") {
-    HomeView(onPlay: {}, onHistory: {}, onTournament: {}, onTrophyCabinet: {})
+    HomeView(onPlay: {}, onTournament: {}, onTrophyCabinet: {})
         .environmentObject(AppState())
         .environmentObject(PurchaseManager.shared)
         .environment(\.dynamicTypeSize, .accessibility2)
@@ -191,7 +185,7 @@ struct HomeView: View {
 }
 
 #Preview("English") {
-    HomeView(onPlay: {}, onHistory: {}, onTournament: {}, onTrophyCabinet: {})
+    HomeView(onPlay: {}, onTournament: {}, onTrophyCabinet: {})
         .environmentObject(AppState())
         .environmentObject(PurchaseManager.shared)
         .environment(\.locale, .init(identifier: "en"))

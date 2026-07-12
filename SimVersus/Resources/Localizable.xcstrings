@@ -652,72 +652,6 @@
         }
       }
     },
-    "history.empty": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No matches yet"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hen\u00fcz ma\u00e7 oynanmad\u0131"
-          }
-        }
-      }
-    },
-    "history.matches": {
-      "extractionState": "stale",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Matches"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ma\u00e7lar"
-          }
-        }
-      }
-    },
-    "history.stats": {
-      "extractionState": "stale",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Statistics"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "\u0130statistikler"
-          }
-        }
-      }
-    },
-    "history.title": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Match History"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ma\u00e7 Ge\u00e7mi\u015fi"
-          }
-        }
-      }
-    },
     "home.eyebrow": {
       "extractionState": "manual",
       "localizations": {
@@ -731,22 +665,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fizik ma\u00e7 sim\u00fclat\u00f6r\u00fc"
-          }
-        }
-      }
-    },
-    "home.history": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Match History"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ma\u00e7 Ge\u00e7mi\u015fi"
           }
         }
       }

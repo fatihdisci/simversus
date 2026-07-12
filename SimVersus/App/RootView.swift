@@ -29,7 +29,6 @@ struct RootView: View {
         NavigationStack(path: $path) {
             HomeView(
                 onPlay: { path.append(.teamSelect) },
-                onHistory: { path.append(.history) },
                 onTournament: { path.append(.tournamentLobby) },
                 onTrophyCabinet: { path.append(.trophyCabinet) }
             )
@@ -45,13 +44,9 @@ struct RootView: View {
         case .home:
             HomeView(
                 onPlay: { path = [.teamSelect] },
-                onHistory: { path.append(.history) },
                 onTournament: { path.append(.tournamentLobby) },
                 onTrophyCabinet: { path.append(.trophyCabinet) }
             )
-
-        case .history:
-            HistoryView(onPlay: { path = [.teamSelect] })
 
         case .teamSelect:
             TeamSelectView(
