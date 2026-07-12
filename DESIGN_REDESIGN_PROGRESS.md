@@ -1,6 +1,6 @@
 # SimVersus Tasarım Dili Yenileme — İlerleme Belgesi
 
-Son güncelleme: 11 Temmuz 2026
+Son güncelleme: 12 Temmuz 2026
 
 ## Amaç
 
@@ -15,12 +15,16 @@ kompakt yayın grafikleri üzerine kuruludur.
 |---|---|---|
 | Faz 1 MVP | Ana ekran → takım seçimi → maç → sonuç akışı, temel design system ve i18n mevcut | Bu çalışmanın ana kapsamı |
 | Faz 2a | Özel takım oluşturucu, renk/rozet/desen/stat sistemi mevcut | Creator UX yeniden düzenlenecek |
-| Faz 2b | Rewarded ile ek takım slotu henüz bağlı değil | Kilit alanı korunacak, yeni özellik eklenmeyecek |
-| Faz 2c | Geçmiş ve istatistik ekranları henüz yok | Ana ekranda sahte giriş oluşturulmayacak |
-| Faz 2d | Ayarlar ekranı placeholder; maç içi pause/exit sonradan eklendi | Kontroller yeni dile uyarlanacak, eksik ayarlar bu kapsamda tamamlanmayacak |
-| Faz 3–4 | Turnuva, başarım ve paylaşım henüz uygulanmamış | Yeni bileşen sistemi gelecekteki ekranlara temel olacak |
-| Faz 5b | Klasik/Gece/Kar/Retro/Uzay maç temaları planlanmış | Uygulama kabuğu varsayılan Gece Arenası olur; tema sistemi taklit edilmeyecek |
-| Faz 6 | Multiplayer plan aşamasında | Kompakt HUD ileride rakip adı/durum rozetini taşıyabilecek |
+| Faz 2b | Rewarded ile ek takım slotu mevcut | Kilit alanı korunacak, yeni özellik eklenmeyecek |
+| Faz 2c | Geçmiş ve istatistik ekranları mevcut | Ana ekranda sahte giriş oluşturulmayacak |
+| Faz 2d | Ayarlar ekranı mevcut | Kontroller yeni dile uyarlandı |
+| Faz 3 — Turnuva | **Yeniden tasarlandı:** "Benim takımım" yolculuğu, anında sonuçlandırma, kupa dolabı, özel yarı final/final sunumu, elenme akışı. CONSTITUTION §4.12'ye tabi. | Yeni bileşen sistemi turnuva ekranlarına temel olacak |
+| Faz 3.5 — Retention | **Yeni ara faz:** Ses tasarımı, olay anlatımı, tahmin sistemi, rövanş/seri, takım ustalığı (kozmetik), günlük arena, ilk maç deneyimi. Faz 4'ten önce retention'ı sağlam temellere oturtur. | Anlatım UI ve tahmin kartları yeni bileşenleri kullanacak |
+| Faz 4 — Başarımlar + Meydan Okuma | **Yeniden tasarlandı:** GameEvents olay sistemi, davranış odaklı başarımlar (pasif sayaç değil), meydan okuma kodu (backend'siz viral sistem), paylaşım kartları. CONSTITUTION §4.17'ye tabi. | Başarım galerisi ve meydan okuma kartları yeni tasarım dilinde |
+| Faz 5 — Genişleme | **Sıralama değişti:** 5a fizik modları (önce), 5b arena şekilleri (sonra), 5c görsel temalar (en son). CONSTITUTION §4.9 determinizm kuralına tabi. | Mod seçim UI'ı yeni bileşenlerle |
+| Faz 6 — Multiplayer | Game Center ile online eşleşme. **Ön koşul:** Faz 3–4 sistemlerinin oturmuş olması. Meydan okuma kodu ile entegre. | Kompakt HUD rakip adı/durum rozetini taşıyabilecek |
+
+> **Temmuz 2026 revizyonu:** Faz sıralaması ve içerikleri ChatGPT ürün analizi doğrultusunda güncellendi. Detaylar için ilgili KIT_README.md dosyalarına ve CONSTITUTION.md §4.12–§4.19'a bakınız.
 
 ## Mevcut tasarım sorunları
 
@@ -112,6 +116,75 @@ kompakt yayın grafikleri üzerine kuruludur.
 - Tüm uygulama iOS Simulator arm64 hedefinde temiz derlendi.
 - Ana ekran iPhone 17 Pro / iOS 26.5 simülatöründe gerçek screenshot ile kontrol
   edildi; safe-area, CTA kontrastı ve dikey yerleşim doğrulandı.
+
+### Aşama 8 — Cihaz ekran görüntüsü denetimi (12 Temmuz)
+
+Gerçek cihazdan alınan 11 ekran görüntüsü üzerinden yapılan sayfa sayfa
+denetimde bulunan hatalar ve düzeltmeleri:
+
+- **Geçmiş/İstatistikler ham anahtar gösteriyordu** (`stats.played`,
+  `stats.wins`, `stats.goalsFor`): katalogdaki boş girdiler TR/EN dolduruldu.
+- **Beraberlikte "BERABERE / Berabere" çift satır**: `result.draw` yayın diline
+  çevrildi ("Puanlar paylaşıldı" / "The points are shared").
+- **"Arena tamamlandı"** eyebrow'u "Maç tamamlandı" yapıldı.
+- **Yarı devre kartı canlı oyunu gizliyordu** (motorda devre arası yok; kart
+  2. yarının ilk dakikalarını örtüyordu): kart süresince sahne duraklatılıyor,
+  kapanınca kullanıcının pause tercihine dönülüyor; alt metin "İkinci yarı
+  başlamak üzere" oldu.
+- **Takım seçiminde bayat ipucu** (iki takım seçiliyken hâlâ "Şimdi deplasman
+  takımını seç"): eşleşme hazır olduğunda "Eşleşme hazır — başlama vuruşu!"
+  gösteriliyor.
+- **Ayarlar'da üst üste iki "Reklamları Kaldır"**: durum satırı "Reklamlar
+  etkin" oldu, CTA tek kaldı.
+- **"Fiyat yükleniyor…" kilitlenmesi**: `PurchaseManager`'a yükleme durumu
+  (loading/loaded/failed) eklendi; başarısız yüklemede "Fiyat yüklenemedi." +
+  "Tekrar Dene" aksiyonu ve sheet açılışında otomatik yeniden deneme var.
+- **Reklam kaldırma ikonu**: tek başına "yasak" okunan `nosign`, megafon +
+  yasak kompozisyonuna çevrildi.
+- **Mono font ihlalleri** (kaydet ipucu, slot/hata mesajları cümle hâlinde SF
+  Mono'daydı): ilke gereği cümleler `.caption`'a alındı, mono yalnız veride.
+- **Oluşturucuda statik kayıt ipucu**: yalnız eksik olanı söyleyen dinamik
+  ipucuna çevrildi; aktif stat preseti çipte vurgulanıyor; diğer slotta seçili
+  olduğu için kapalı renk swatch'ına çapraz çizgi eklendi.
+- **Geçmiş ekranı sistem parçaları**: segmented Picker yerine ortak
+  `ArenaChoicePill` (Ayarlar süre seçimiyle aynı bileşen), maç satırlarına
+  takım orb'ları + kazanan vurgusu, istatistikte kısa kod yerine tam ad; ham
+  sistem `List` olan detay sayfası Arena diline (skor kartı + gol akışı)
+  taşındı; `TeamStore`'un her render'da yeniden kurulması giderildi.
+
+Tamamı iPhone 17 Pro simülatöründe temiz derlendi; 24 birim testin hepsi geçti.
+
+### Aşama 9 — Kale fiziği ve akıcılık (12 Temmuz)
+
+Kullanıcı raporu: "gol olacak top sekiyor, saçma sekmeler var, kasma oluyor."
+Denetimde üç geometrik kusur bulundu ve motor yeniden kalibre edildi:
+
+- **Görünmez ağız kirişi:** eski kabul kuralı topun kapıdan *tamamen temiz*
+  geçmesini şart koşuyordu; 85 pt'lik görünür açıklığın yalnız ortadaki
+  29 pt'i gol kabul ediyor, kalan kısımda top görünürde boşlukta radyal
+  sekiyordu. Ağız artık gerçekten açık: direkler arasında duvar yok, kenar
+  temasları yalnız fiziksel direk/ray çarpışmasından gelir.
+- **Hayalet ayna kapısı:** açı testi `sin` simetrisi yüzünden kalenin tam
+  karşısındaki ±5.3°'lik bantta da "kapı" görüyordu; top orada duvara her
+  çarpışta bir kare sekmeyip sonra tekmeleniyordu (görünür titreme).
+  Açısal açıklık testi (yarım açı < 90°) bunu kökten kapattı.
+- **Direk-ray dikişi:** nokta-direk ve ayrı ray çözücülerinin çarpışma
+  manifoldları çakışıyordu; direk yayı boyunca kayan top ray bölgesine
+  15 pt gömülüp ani "ışınlanma" sekmesi yiyordu. İkisi tek kapsül
+  (segment + uç yuvarlağı) çarpışmasında birleştirildi — direk sıyırması,
+  ray kayması ve aradaki geçiş tek sürekli normalle çözülür.
+- **Kalibrasyon:** dürüst ağız skoru artırdığı için `gapWidth` 0.54 → 0.44
+  rad'a indirildi; 40 seed ölçümünde ortalama 1.33 gol (bant 0.8–2.0),
+  0-0 oranı %20. `00_TEMEL/PHYSICS_CONSTANTS.md` senkronlandı.
+- **Power-up doğum düzeltmesi:** pickup topun üstüne doğup aynı adımda
+  yutulabiliyordu (anlık yanıp sönme); doğum noktası toplara çakışırsa
+  seed'li sınırlı yeniden çekim yapılır.
+- **Akıcılık:** SKView 60 fps kilidi kaldırıldı (panel yerlisi — ProMotion'da
+  120 fps, sabit adımlı sim değişmez); gol anındaki 60 düğümlük konfeti
+  patlaması için parçacık havuzu sahne kurulumunda ön-ısıtılır; power-up
+  senkronunun her karedeki Set/Array tahsisi sabit-durum kısa yoluyla kesildi.
+
+Determinizm, 20-seed gol bandı ve tüm birim testleri geçti.
 
 ## Bilinçli kapsam sınırları
 
