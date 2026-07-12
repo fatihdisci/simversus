@@ -28,6 +28,6 @@ struct SimVersusApp: App {
         }
         // Persists user-created teams (Phase 2a). The container is injected into
         // the environment so `@Query` / `modelContext` work throughout the app.
-        .modelContainer(for: [CustomTeam.self, MatchRecord.self, TournamentState.self])
+        .modelContainer(for: [CustomTeam.self, MatchRecord.self, TournamentState.self, Trophy.self])
     }
 }

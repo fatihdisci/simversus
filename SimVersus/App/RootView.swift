@@ -30,7 +30,8 @@ struct RootView: View {
             HomeView(
                 onPlay: { path.append(.teamSelect) },
                 onHistory: { path.append(.history) },
-                onTournament: { path.append(.tournamentLobby) }
+                onTournament: { path.append(.tournamentLobby) },
+                onTrophyCabinet: { path.append(.trophyCabinet) }
             )
             .navigationDestination(for: AppRoute.self, destination: destination)
         }
@@ -45,7 +46,8 @@ struct RootView: View {
             HomeView(
                 onPlay: { path = [.teamSelect] },
                 onHistory: { path.append(.history) },
-                onTournament: { path.append(.tournamentLobby) }
+                onTournament: { path.append(.tournamentLobby) },
+                onTrophyCabinet: { path.append(.trophyCabinet) }
             )
 
         case .history:
@@ -64,6 +66,9 @@ struct RootView: View {
 
         case .teamCreator:
             TeamCreatorView(onDone: { if !path.isEmpty { path.removeLast() } })
+
+        case .trophyCabinet:
+            TrophyCabinetView()
 
         case .tournamentLobby:
             TournamentLobbyView { format in
@@ -184,6 +189,6 @@ struct RootView: View {
 #Preview {
     RootView()
         .environmentObject(AppState())
-        .modelContainer(for: [CustomTeam.self, MatchRecord.self, TournamentState.self], inMemory: true)
+        .modelContainer(for: [CustomTeam.self, MatchRecord.self, TournamentState.self, Trophy.self], inMemory: true)
         .preferredColorScheme(.dark)
 }

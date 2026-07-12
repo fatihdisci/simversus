@@ -7,6 +7,7 @@ struct HomeView: View {
     let onPlay: () -> Void
     let onHistory: () -> Void
     let onTournament: () -> Void
+    let onTrophyCabinet: () -> Void
 
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var purchaseManager: PurchaseManager
@@ -92,6 +93,13 @@ struct HomeView: View {
                             .frame(maxWidth: .infinity, minHeight: Layout.minTouchTarget)
                     }.buttonStyle(.plain)
 
+                    Button(action: onTrophyCabinet) {
+                        Label("Kupa Dolabı", systemImage: "display.case")
+                            .font(.sectionLabel)
+                            .foregroundStyle(.yellow)
+                            .frame(maxWidth: .infinity, minHeight: Layout.minTouchTarget)
+                    }.buttonStyle(.plain)
+
                     Button(action: onHistory) {
                         Label("home.history", systemImage: "clock.arrow.circlepath")
                             .font(.sectionLabel)
@@ -120,7 +128,7 @@ struct HomeView: View {
 }
 
 #Preview {
-    HomeView(onPlay: {}, onHistory: {}, onTournament: {})
+    HomeView(onPlay: {}, onHistory: {}, onTournament: {}, onTrophyCabinet: {})
         .environmentObject(AppState())
         .environmentObject(PurchaseManager.shared)
         .preferredColorScheme(.dark)

@@ -311,6 +311,7 @@ struct TournamentBracketView: View {
         if state.currentRound == TournamentEngine.maxRound(in: state.fixtures) {
             state.completedAt = .now
             state.setPhase(.finished)
+            saveTrophyIfChampion(state)
             try? modelContext.save()
             return
         }
@@ -361,6 +362,38 @@ struct TournamentBracketView: View {
             guard let r = resultMap[f.id] else { return nil }
             if let w = r.winnerTeamID { return w }
             return r.homeScore >= r.awayScore ? f.homeTeamID : f.awayTeamID
+        }
+    }
+
+    // MARK: - Trophy
+
+    private func saveTrophyIfChampion(_ state: TournamentState) {
+        // Was the player's team in the final and won?
+        let finalFixtures = TournamentEngine.fixturesForRound(
+            state.fixtures, round: state.currentRound)
+        let resultMap = Dictionary(uniqueKeysWithValues: state.results.map { ($0.fixtureID, $0) })
+
+        for f in finalFixtures {
+            let isPlayerFinal = f.homeTeamID == state.playerTeamID
+                || f.awayTeamID == state.playerTeamID
+            guard isPlayerFinal, let r = resultMap[f.id] else { continue }
+
+            let playerIsHome = f.homeTeamID == state.playerTeamID
+            let playerWon = playerIsHome ? r.homeScore > r.awayScore : r.awayScore > r.homeScore
+            guard playerWon else { return }
+
+            let team = resolveTeam(state.playerTeamID)
+            let trophy = Trophy(
+                format: state.format,
+                teamID: team.id,
+                teamName: team.nameTR,
+                teamShort: team.short,
+                primaryHex: team.primary,
+                secondaryHex: team.secondary,
+                badgeShape: team.badgeShape,
+                isCustomTeam: team.tier == 0)
+            modelContext.insert(trophy)
+            return
         }
     }
 
