@@ -91,6 +91,54 @@ final class WorldArenaSessionController {
             tournamentSeed: state.tournamentSeed)
     }
 
+    var bracket: WorldKnockoutBracket? { state.knockoutBracket }
+
+    var currentKnockoutRound: Int {
+        guard let bracket else { return 1 }
+        return min(max(state.currentRound, 1),
+                   WorldBracketResolver.maxRound(in: bracket))
+    }
+
+    var nextPlayerKnockoutFixture: Fixture? {
+        guard state.phase == .knockout, !isPlayerEliminated,
+              let bracket else { return nil }
+        let played = Set(state.results.map(\.fixtureID))
+        return WorldBracketResolver.fixtures(in: bracket, round: currentKnockoutRound)
+            .first {
+                !played.contains($0.id)
+                    && ($0.homeTeamID == state.playerTeamID
+                        || $0.awayTeamID == state.playerTeamID)
+            }
+    }
+
+    var isPlayerEliminated: Bool {
+        guard let bracket else { return false }
+        let fixtureMap = Dictionary(uniqueKeysWithValues: bracket.fixtures.map { ($0.id, $0) })
+        return state.results.contains { result in
+            guard let fixture = fixtureMap[result.fixtureID],
+                  fixture.homeTeamID == state.playerTeamID
+                    || fixture.awayTeamID == state.playerTeamID else { return false }
+            return result.winnerTeamID != nil && result.winnerTeamID != state.playerTeamID
+        }
+    }
+
+    var elimination: (fixture: Fixture, result: FixtureResult)? {
+        guard let bracket else { return nil }
+        for result in state.results.reversed() {
+            guard result.winnerTeamID != state.playerTeamID,
+                  let fixture = bracket.fixtures.first(where: { $0.id == result.fixtureID }),
+                  fixture.homeTeamID == state.playerTeamID
+                    || fixture.awayTeamID == state.playerTeamID else { continue }
+            return (fixture, result)
+        }
+        return nil
+    }
+
+    var championTeamID: String? {
+        guard let bracket else { return nil }
+        return WorldBracketResolver.championTeamID(in: bracket, results: state.results)
+    }
+
     func standings(for group: GroupAssignment) -> [GroupStanding] {
         WorldGroupStageEngine.standings(
             for: group,
@@ -137,6 +185,68 @@ final class WorldArenaSessionController {
                 try simulateUnplayedGroupFixtures(on: matchday)
             }
             if isGroupStageComplete { try finalizeGroupStageIfNeeded() }
+            try modelContext.save()
+        } catch {
+            errorKey = error.localizedDescriptionKey
+        }
+    }
+
+    func resumeKnockoutProgression() async {
+        guard state.phase == .knockout, !isResolving, !isPlayerEliminated else { return }
+        isResolving = true
+        errorKey = nil
+        defer { isResolving = false }
+        do {
+            try advanceCompletedKnockoutRoundIfNeeded()
+            guard state.phase == .knockout else { return }
+            try simulateNonPlayerFixtures(in: currentKnockoutRound)
+            try advanceCompletedKnockoutRoundIfNeeded()
+            try modelContext.save()
+        } catch {
+            errorKey = error.localizedDescriptionKey
+        }
+    }
+
+    @discardableResult
+    func recordPlayerKnockoutResult(_ regulation: MatchResult,
+                                    fixtureID: String) throws -> FixtureResult {
+        guard var bracket = state.knockoutBracket,
+              let fixture = bracket.fixtures.first(where: { $0.id == fixtureID }),
+              fixture.homeTeamID == state.playerTeamID
+                || fixture.awayTeamID == state.playerTeamID,
+              let home = catalog.find(fixture.homeTeamID)?.asTeam,
+              let away = catalog.find(fixture.awayTeamID)?.asTeam else {
+            throw WorldArenaSessionError.malformedState
+        }
+        var stored = KnockoutMatchResolver.resolve(
+            fixture: fixture,
+            homeTeam: home,
+            awayTeam: away,
+            regulationResult: regulation,
+            tournamentSeed: state.tournamentSeed).fixtureResult
+        stored.isSimulated = false
+        try WorldBracketValidator.validate(stored, against: bracket,
+                                           existingResults: state.results)
+        _ = try TournamentResultRecorder.record(stored,
+                                                fixtureID: fixtureID,
+                                                in: state)
+        bracket = materialized(bracket)
+        state.setKnockoutBracket(bracket)
+        try advanceCompletedKnockoutRoundIfNeeded()
+        try modelContext.save()
+        return stored
+    }
+
+    func finishTournamentAfterElimination() async {
+        guard isPlayerEliminated, state.phase == .knockout, !isResolving else { return }
+        isResolving = true
+        errorKey = nil
+        defer { isResolving = false }
+        do {
+            while state.phase == .knockout {
+                try simulateAllFixtures(in: currentKnockoutRound)
+                try advanceCompletedKnockoutRoundIfNeeded()
+            }
             try modelContext.save()
         } catch {
             errorKey = error.localizedDescriptionKey
@@ -207,6 +317,78 @@ final class WorldArenaSessionController {
         state.setKnockoutBracket(bracket)
         state.currentRound = 1
         state.setPhase(.knockout)
+    }
+
+    private func simulateNonPlayerFixtures(in round: Int) throws {
+        guard let bracket else { throw WorldArenaSessionError.malformedState }
+        let played = Set(state.results.map(\.fixtureID))
+        for fixture in WorldBracketResolver.fixtures(in: bracket, round: round)
+            where !played.contains(fixture.id)
+                && fixture.homeTeamID != state.playerTeamID
+                && fixture.awayTeamID != state.playerTeamID {
+            try simulateKnockoutFixture(fixture, bracket: bracket)
+        }
+    }
+
+    private func simulateAllFixtures(in round: Int) throws {
+        guard let bracket else { throw WorldArenaSessionError.malformedState }
+        let played = Set(state.results.map(\.fixtureID))
+        for fixture in WorldBracketResolver.fixtures(in: bracket, round: round)
+            where !played.contains(fixture.id) {
+            try simulateKnockoutFixture(fixture, bracket: bracket)
+        }
+    }
+
+    private func simulateKnockoutFixture(_ fixture: Fixture,
+                                         bracket: WorldKnockoutBracket) throws {
+        let config = try matchConfig(for: fixture)
+        let regulation = TournamentEngine.simulateMatch(
+            homeTeam: config.homeTeam,
+            awayTeam: config.awayTeam,
+            seed: fixture.seed,
+            duration: config.duration)
+        let outcome = KnockoutMatchResolver.resolve(
+            fixture: fixture,
+            homeTeam: config.homeTeam,
+            awayTeam: config.awayTeam,
+            regulationResult: regulation,
+            tournamentSeed: state.tournamentSeed)
+        try WorldBracketValidator.validate(outcome.fixtureResult,
+                                           against: bracket,
+                                           existingResults: state.results)
+        _ = try TournamentResultRecorder.record(
+            outcome.fixtureResult, fixtureID: fixture.id, in: state)
+    }
+
+    private func advanceCompletedKnockoutRoundIfNeeded() throws {
+        guard var bracket = state.knockoutBracket else {
+            throw WorldArenaSessionError.malformedState
+        }
+        let round = currentKnockoutRound
+        guard WorldBracketResolver.isRoundComplete(
+            round, bracket: bracket, results: state.results) else { return }
+        bracket = materialized(bracket)
+        state.setKnockoutBracket(bracket)
+        if round == WorldBracketResolver.maxRound(in: bracket) {
+            state.currentRound = round
+            state.setPhase(.finished)
+            state.completedAt = .now
+        } else {
+            state.currentRound = round + 1
+        }
+    }
+
+    private func materialized(_ bracket: WorldKnockoutBracket) -> WorldKnockoutBracket {
+        let context = TournamentEngine.SlotResolutionContext(
+            groupRankings: state.groupAssignments.map { standings(for: $0).map(\.teamID) },
+            bestThirdPlacedTeamIDs: state.bestThirdPlacedTeamIDs,
+            fixtureResults: Dictionary(uniqueKeysWithValues:
+                state.results.map { ($0.fixtureID, $0) }))
+        let fixtures = WorldBracketResolver.materialize(bracket.fixtures, context: context)
+        return WorldKnockoutBracket(
+            fixtures: fixtures,
+            createdFromTournamentSeed: bracket.createdFromTournamentSeed,
+            qualifierTeamIDs: bracket.qualifierTeamIDs)
     }
 
     private func validatePersistedState() throws {

@@ -27,5 +27,6 @@ enum AppRoute: Hashable {
     case worldArenaChampion(tournamentID: UUID)
     case trophyCabinet
     case match(MatchConfig, context: MatchContext)
-    case result(MatchResult, MatchConfig, context: MatchContext)
+    case result(MatchResult, MatchConfig, context: MatchContext,
+                details: TournamentResultDetails? = nil)
 }

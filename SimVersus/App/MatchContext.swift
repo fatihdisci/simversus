@@ -36,3 +36,15 @@ enum MatchContext: Hashable {
         }
     }
 }
+
+struct TournamentResultDetails: Hashable {
+    let resolution: MatchResolution
+    let homePenaltyScore: Int?
+    let awayPenaltyScore: Int?
+
+    init(_ result: FixtureResult) {
+        resolution = result.resolution
+        homePenaltyScore = result.homePenaltyScore
+        awayPenaltyScore = result.awayPenaltyScore
+    }
+}

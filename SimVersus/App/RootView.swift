@@ -106,12 +106,26 @@ struct RootView: View {
                 onReturnToLobby: { path = [.tournamentLobby] })
 
         case .worldArenaBestThirds(let tournamentID):
-            ProgressView("tournament.worldArena.loading")
-                .task { _ = tournamentID }
+            WorldArenaBestThirdsView(
+                tournamentID: tournamentID,
+                onViewKnockout: {
+                    path.append(.worldArenaKnockout(tournamentID: tournamentID))
+                },
+                onReturnToLobby: { path = [.tournamentLobby] })
 
         case .worldArenaKnockout(let tournamentID):
-            ProgressView("tournament.worldArena.loading")
-                .task { _ = tournamentID }
+            WorldArenaKnockoutView(
+                tournamentID: tournamentID,
+                onPlayMatch: { config, fixture in
+                    path.append(.match(config, context: .worldArena(
+                        tournamentID: tournamentID,
+                        fixtureID: fixture.id,
+                        stage: .knockout)))
+                },
+                onChampion: {
+                    path.append(.worldArenaChampion(tournamentID: tournamentID))
+                },
+                onHome: { path = [] })
 
         case .worldArenaChampion(let tournamentID):
             ProgressView("tournament.worldArena.loading")
@@ -138,24 +152,35 @@ struct RootView: View {
             }) { result in
                 appState.matchesPlayedCount += 1
                 saveMatchRecord(result, config: config)
-                if let tournamentID = context.tournamentID,
-                   let fixtureID = context.fixtureID {
-                    saveTournamentResult(result,
-                                         fixtureID: fixtureID,
-                                         tournamentID: tournamentID)
+                var details: TournamentResultDetails?
+                switch context {
+                case .casual:
+                    break
+                case .standardTournament(let tournamentID, let fixtureID),
+                     .worldArena(let tournamentID, let fixtureID, .group):
+                    if let stored = saveTournamentResult(
+                        result, fixtureID: fixtureID, tournamentID: tournamentID) {
+                        details = TournamentResultDetails(stored)
+                    }
+                case .worldArena(let tournamentID, let fixtureID, .knockout):
+                    if let stored = saveWorldArenaKnockoutResult(
+                        result, fixtureID: fixtureID, tournamentID: tournamentID) {
+                        details = TournamentResultDetails(stored)
+                    }
                 }
                 path.removeLast()
-                path.append(.result(result, config, context: context))
+                path.append(.result(result, config, context: context, details: details))
             }
             .navigationBarBackButtonHidden(true)
             .toolbar(.hidden, for: .navigationBar)
 
-        case .result(let result, let config, let context):
+        case .result(let result, let config, let context, let details):
             if case .standardTournament(let tournamentID, let fixtureID) = context {
                 // Tournament match result — route back to bracket.
                 ResultView(
                     result: result,
                     config: config,
+                    tournamentDetails: details,
                     onRematch: {
                         let newConfig = MatchConfig(homeTeam: config.homeTeam,
                                                     awayTeam: config.awayTeam,
@@ -171,6 +196,8 @@ struct RootView: View {
                 ResultView(
                     result: result,
                     config: config,
+                    tournamentDetails: details,
+                    isWorldArena: true,
                     onRematch: { returnToWorldArenaDashboard(context) },
                     onNewMatch: { returnToWorldArenaDashboard(context) },
                     onHome: { path = [] }
@@ -214,15 +241,26 @@ struct RootView: View {
 
     private func saveTournamentResult(_ result: MatchResult,
                                       fixtureID: String,
-                                      tournamentID: UUID) {
+                                      tournamentID: UUID) -> FixtureResult? {
         let id = tournamentID
         let descriptor = FetchDescriptor<TournamentState>(predicate: #Predicate { $0.id == id })
-        guard let state = try? modelContext.fetch(descriptor).first else { return }
+        guard let state = try? modelContext.fetch(descriptor).first else { return nil }
 
         let fixtureResult = FixtureResult(from: result, fixtureID: fixtureID, isSimulated: false)
         guard (try? TournamentResultRecorder.record(
-            fixtureResult, fixtureID: fixtureID, in: state)) == true else { return }
+            fixtureResult, fixtureID: fixtureID, in: state)) == true else { return nil }
         try? modelContext.save()
+        return fixtureResult
+    }
+
+    private func saveWorldArenaKnockoutResult(_ result: MatchResult,
+                                              fixtureID: String,
+                                              tournamentID: UUID) -> FixtureResult? {
+        guard let controller = try? WorldArenaSessionController(
+            tournamentID: tournamentID, modelContext: modelContext),
+              let stored = try? controller.recordPlayerKnockoutResult(
+                result, fixtureID: fixtureID) else { return nil }
+        return stored
     }
 
     private func returnToWorldArenaDashboard(_ context: MatchContext) {

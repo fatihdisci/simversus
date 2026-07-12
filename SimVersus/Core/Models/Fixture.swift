@@ -60,7 +60,7 @@ struct Fixture: Codable, Equatable, Identifiable {
 
 /// How a fixture reached a decisive result. Group-stage matches are always
 /// `.regulation`; a knockout tie is broken by `.extraTime` or `.penalties`.
-enum MatchResolution: String, Codable, Equatable {
+enum MatchResolution: String, Codable, Equatable, Hashable {
     case regulation
     case extraTime
     case penalties

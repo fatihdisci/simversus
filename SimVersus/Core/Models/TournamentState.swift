@@ -119,12 +119,12 @@ final class TournamentState {
     /// Sets the World Arena knockout bracket.
     func setKnockoutBracket(_ bracket: WorldKnockoutBracket) {
         knockoutBracketData = (try? JSONEncoder().encode(bracket)) ?? Data()
-        // Append these fixtures to the main fixtures array if not already present.
-        var current = fixtures
-        let existingIDs = Set(current.map(\.id))
-        for f in bracket.fixtures where !existingIDs.contains(f.id) {
-            current.append(f)
-        }
+        // World Arena bracket fixtures are authoritative: replace previously
+        // persisted copies so materialized team slots survive resume.
+        let bracketIDs = Set(bracket.fixtures.map(\.id))
+        var current = fixtures.filter { !bracketIDs.contains($0.id) }
+        current.append(contentsOf: bracket.fixtures)
+        current.sort { $0.matchIndex < $1.matchIndex }
         fixturesData = (try? JSONEncoder().encode(current)) ?? Data()
     }
 

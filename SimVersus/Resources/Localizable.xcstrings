@@ -3937,6 +3937,118 @@
         "tr" : { "stringUnit" : { "state" : "translated", "value" : "Turnuva Lobisine Dön" } }
       }
     },
+    "tournament.bestThird.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Best Third-Placed Teams" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "En İyi Üçüncüler" } }
+      }
+    },
+    "tournament.bestThird.subtitle" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "The top eight third-placed nations advance to the Round of 32." } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "En iyi sekiz üçüncü ulus Son 32 turuna yükselir." } }
+      }
+    },
+    "tournament.bestThird.team" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Nation" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Ulus" } }
+      }
+    },
+    "tournament.bestThird.columns" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "P  GD  GF  Pts" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "O  AV  AG  P" } }
+      }
+    },
+    "tournament.bestThird.qualified" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Qualified" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Yükseldi" } }
+      }
+    },
+    "tournament.bestThird.eliminated" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Eliminated" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Elendi" } }
+      }
+    },
+    "tournament.bestThird.viewBracket" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "View Round of 32" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Son 32 Turunu Gör" } }
+      }
+    },
+    "tournament.knockout.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Knockout Stage" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Eleme Aşaması" } }
+      }
+    },
+    "tournament.knockout.yourMatch" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Your Knockout Match" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Eleme Maçın" } }
+      }
+    },
+    "tournament.knockout.simulating" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Other knockout matches are being played…" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Diğer eleme maçları oynanıyor…" } }
+      }
+    },
+    "tournament.knockout.eliminated" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Your Nation Was Eliminated" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Ulusun Elendi" } }
+      }
+    },
+    "tournament.knockout.finishRemaining" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Simulate Remaining Matches" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Kalan Maçları Simüle Et" } }
+      }
+    },
+    "tournament.knockout.viewChampion" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "See World Champion" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Dünya Şampiyonunu Gör" } }
+      }
+    },
+    "tournament.knockout.pending" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Pending" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Bekleniyor" } }
+      }
+    },
+    "tournament.knockout.afterExtraTime" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "After Extra Time" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Uzatma Sonucu" } }
+      }
+    },
+    "tournament.knockout.penaltiesScore" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Penalties: %d–%d" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Penaltılar: %d–%d" } }
+      }
+    },
     "Turnuva" : {
       "comment" : "A tournament button.",
       "isCommentAutoGenerated" : true

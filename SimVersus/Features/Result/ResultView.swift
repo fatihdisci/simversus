@@ -7,6 +7,8 @@ struct ResultView: View {
     @EnvironmentObject private var appState: AppState
     let result: MatchResult
     let config: MatchConfig
+    var tournamentDetails: TournamentResultDetails? = nil
+    var isWorldArena = false
     let onRematch: () -> Void
     let onNewMatch: () -> Void
     let onHome: () -> Void
@@ -24,6 +26,7 @@ struct ResultView: View {
                                    awayTeam: config.awayTeam,
                                    winnerText: winnerText,
                                    winnerTeam: winnerTeam)
+                    resolutionSummary
                     goalSummary
                 }
                 .padding(.horizontal, Spacing.l)
@@ -34,6 +37,27 @@ struct ResultView: View {
         }
         .safeAreaInset(edge: .bottom) { actionBar }
         .onDisappear { AdGate.onResultDismiss(matchesPlayed: appState.matchesPlayedCount) }
+    }
+
+    @ViewBuilder
+    private var resolutionSummary: some View {
+        if let details = tournamentDetails, details.resolution != .regulation {
+            ArenaSurface {
+                if details.resolution == .extraTime {
+                    Label("tournament.knockout.afterExtraTime",
+                          systemImage: "clock.arrow.circlepath")
+                        .font(.sectionLabel)
+                        .foregroundStyle(Palette.accentWarning)
+                } else if let home = details.homePenaltyScore,
+                          let away = details.awayPenaltyScore {
+                    Label(String.localizedStringWithFormat(
+                        NSLocalizedString("tournament.knockout.penaltiesScore", comment: ""),
+                        home, away), systemImage: "soccerball")
+                        .font(.sectionLabel.monospacedDigit())
+                        .foregroundStyle(Palette.accentWarning)
+                }
+            }
+        }
     }
 
     private var header: some View {
@@ -106,15 +130,22 @@ struct ResultView: View {
 
     private var actionBar: some View {
         VStack(spacing: Spacing.s) {
-            ArenaCTAButton(title: "result.rematch",
-                           systemImage: "arrow.counterclockwise",
-                           kind: .primary,
-                           action: onRematch)
+            if isWorldArena {
+                ArenaCTAButton(title: "tournament.worldArena.continue",
+                               systemImage: "forward.fill",
+                               kind: .primary,
+                               action: onNewMatch)
+            } else {
+                ArenaCTAButton(title: "result.rematch",
+                               systemImage: "arrow.counterclockwise",
+                               kind: .primary,
+                               action: onRematch)
 
-            ArenaCTAButton(title: "result.newMatch",
-                           systemImage: "forward.fill",
-                           kind: .secondary,
-                           action: onNewMatch)
+                ArenaCTAButton(title: "result.newMatch",
+                               systemImage: "forward.fill",
+                               kind: .secondary,
+                               action: onNewMatch)
+            }
 
             Button("result.home", action: onHome)
                 .font(.sectionLabel)
