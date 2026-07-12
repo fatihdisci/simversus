@@ -137,13 +137,11 @@ enum TournamentEngine {
     // MARK: - Seed derivation
 
     /// Deterministically derives a fixture seed from the tournament seed and
-    /// fixture ID so the same tournament always produces the same results.
+    /// fixture ID using FNV-1a 64-bit. Unlike Swift's Hasher, this produces
+    /// identical output across process launches — same tournamentSeed + same
+    /// fixtureID always yields the same UInt64 (CONSTITUTION §11).
     static func deriveSeed(tournamentSeed: UInt64, fixtureID: String) -> UInt64 {
-        var hasher = Hasher()
-        hasher.combine(tournamentSeed)
-        hasher.combine(fixtureID)
-        let hash = UInt64(bitPattern: Int64(hasher.finalize()))
-        return hash == 0 ? 1 : hash // 0 is reserved
+        TournamentSeedDeriver.derive(tournamentSeed: tournamentSeed, fixtureID: fixtureID)
     }
 
     // MARK: - Headless simulation
@@ -192,13 +190,20 @@ enum TournamentEngine {
                                  goalsAgainst: goalsAgainst, points: points)
         }
 
-        // Sort: points (desc) → GD (desc) → GF (desc)
+        // Sort: 1. points → 2. wins → 3. GD → 4. GF → 5. H2H → 6. seed tiebreak
         standings.sort { a, b in
             if a.points != b.points { return a.points > b.points }
+            if a.wins != b.wins { return a.wins > b.wins }
             let gdA = a.goalsFor - a.goalsAgainst
             let gdB = b.goalsFor - b.goalsAgainst
             if gdA != gdB { return gdA > gdB }
-            return a.goalsFor > b.goalsFor
+            if a.goalsFor != b.goalsFor { return a.goalsFor > b.goalsFor }
+            // Head-to-head: check direct result between these two teams.
+            if let h2h = headToHead(a.teamID, b.teamID, fixtures: fixtures, resultMap: resultMap) {
+                if h2h != 0 { return h2h > 0 }
+            }
+            // Deterministic seed tiebreak (last resort).
+            return a.teamID < b.teamID
         }
         return standings
     }
@@ -210,38 +215,97 @@ enum TournamentEngine {
 
     // MARK: - Knockout advancement
 
-    /// Determines which teams fill the next knockout round's "TBD" slots based
-    /// on the results of the previous round.
+    /// Fills the next knockout round's unresolved slots using the provided
+    /// winners. Slots are resolved by their FixtureSlotSource: a group rank
+    /// source consumes the corresponding team from the advancing list; a
+    /// "winner of" source resolves after the referenced fixture completes.
+    /// This replaces the old "TBD" sequential fill with typed slot resolution.
     static func advanceKnockout(fixtures: inout [Fixture],
                                 results: [FixtureResult],
                                 newWinners: [String]) {
-        // Find the first round that still has "TBD" slots and fill them.
+        let resultMap = Dictionary(uniqueKeysWithValues: results.map { ($0.fixtureID, $0) })
+
         for i in fixtures.indices {
-            if fixtures[i].homeTeamID == "TBD" || fixtures[i].awayTeamID == "TBD" {
-                // This is a placeholder round — fill from winners.
-                // The winners are ordered by previous-round match index.
-                break
+            let f = fixtures[i]
+
+            // Only fill slots in the next round (round > current max-resolved).
+            guard f.round > 0, f.homeTeamID == "TBD" || f.awayTeamID == "TBD" else { continue }
+
+            let homeResolved = resolveSlot(f.homeSource, winners: newWinners,
+                                           resultMap: resultMap,
+                                           fallbackID: f.homeTeamID)
+            let awayResolved = resolveSlot(f.awaySource, winners: newWinners,
+                                           resultMap: resultMap,
+                                           fallbackID: f.awayTeamID)
+
+            if homeResolved != f.homeTeamID || awayResolved != f.awayTeamID {
+                fixtures[i] = f.withTeams(home: homeResolved, away: awayResolved)
             }
         }
 
-        // Actually, we need to update fixtures with winners in the right order.
-        // Each group of 2 consecutive winners fills one next-round fixture.
+        // Fallback: if no sources were stored (legacy tournaments), fill
+        // sequentially as before.
+        if !fixtures.contains(where: { $0.homeTeamID == "TBD" || $0.awayTeamID == "TBD" }) {
+            return
+        }
         var winnerIdx = 0
-        for i in fixtures.indices {
-            guard fixtures[i].homeTeamID == "TBD" else { continue }
+        for i in fixtures.indices where fixtures[i].homeTeamID == "TBD" {
             guard winnerIdx < newWinners.count else { break }
             let home = newWinners[winnerIdx]
             let away = winnerIdx + 1 < newWinners.count ? newWinners[winnerIdx + 1] : "TBD"
-            let updated = Fixture(id: fixtures[i].id,
-                                  homeTeamID: home,
-                                  awayTeamID: away,
-                                  round: fixtures[i].round,
-                                  groupIndex: fixtures[i].groupIndex,
-                                  matchIndex: fixtures[i].matchIndex,
-                                  seed: fixtures[i].seed)
-            fixtures[i] = updated
+            fixtures[i] = fixtures[i].withTeams(home: home, away: away)
             winnerIdx += 2
         }
+    }
+
+    /// Resolves a single FixtureSlotSource to a concrete team ID.
+    private static func resolveSlot(_ source: FixtureSlotSource,
+                                    winners: [String],
+                                    resultMap: [String: FixtureResult],
+                                    fallbackID: String) -> String {
+        switch source {
+        case .team(let id):
+            return id
+        case .groupRank(let groupIndex, let rank):
+            // `winners` is ordered [G0R0, G0R1, G1R0, G1R1, ...]
+            // per-group advance count determines stride.
+            // For now the caller pre-orders winners correctly.
+            let idx = groupIndex * 2 + rank // assumes advancePerGroup=2
+            return idx < winners.count ? winners[idx] : "TBD"
+        case .bestThirdPlace(let rank):
+            return rank < winners.count ? winners[rank] : "TBD"
+        case .winner(let fixtureID):
+            if let result = resultMap[fixtureID] {
+                return result.winnerTeamID
+                    ?? (result.homeScore >= result.awayScore
+                        ? fallbackID : fallbackID)
+            }
+            return "TBD"
+        case .pending:
+            return fallbackID == "TBD" ? "TBD" : fallbackID
+        }
+    }
+
+    // MARK: - Head-to-head tiebreak
+
+    /// Returns the net goal difference for teamA vs teamB in their direct
+    /// encounter. Positive = teamA ahead, negative = teamB ahead, nil = no
+    /// direct fixture found or drawn match.
+    private static func headToHead(_ teamA: String, _ teamB: String,
+                                   fixtures: [Fixture],
+                                   resultMap: [String: FixtureResult]) -> Int? {
+        for f in fixtures {
+            guard (f.homeTeamID == teamA && f.awayTeamID == teamB)
+                    || (f.homeTeamID == teamB && f.awayTeamID == teamA),
+                  let r = resultMap[f.id] else { continue }
+            let isAHome = f.homeTeamID == teamA
+            let goalsA = isAHome ? r.homeScore : r.awayScore
+            let goalsB = isAHome ? r.awayScore : r.homeScore
+            if goalsA > goalsB { return 1 }
+            if goalsB > goalsA { return -1 }
+            return 0 // draw in H2H
+        }
+        return nil
     }
 
     // MARK: - Round helpers

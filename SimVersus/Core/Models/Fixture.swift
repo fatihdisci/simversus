@@ -21,9 +21,15 @@ struct Fixture: Codable, Equatable, Identifiable {
     var matchIndex: Int
     /// Deterministic seed for the match engine.
     var seed: UInt64
+    /// Encoded FixtureSlotSource for home slot (nil = backward-compatible).
+    var _homeSourceData: Data?
+    /// Encoded FixtureSlotSource for away slot (nil = backward-compatible).
+    var _awaySourceData: Data?
 
     init(id: String, homeTeamID: String, awayTeamID: String,
-         round: Int, groupIndex: Int?, matchIndex: Int, seed: UInt64) {
+         round: Int, groupIndex: Int?, matchIndex: Int, seed: UInt64,
+         homeSource: FixtureSlotSource? = nil,
+         awaySource: FixtureSlotSource? = nil) {
         self.id = id
         self.homeTeamID = homeTeamID
         self.awayTeamID = awayTeamID
@@ -31,6 +37,18 @@ struct Fixture: Codable, Equatable, Identifiable {
         self.groupIndex = groupIndex
         self.matchIndex = matchIndex
         self.seed = seed
+        self._homeSourceData = homeSource.flatMap { try? JSONEncoder().encode($0) }
+        self._awaySourceData = awaySource.flatMap { try? JSONEncoder().encode($0) }
+    }
+
+    /// Creates a new fixture with updated team IDs, preserving the original seed
+    /// and slot sources.
+    func withTeams(home: String, away: String) -> Fixture {
+        Fixture(id: id, homeTeamID: home, awayTeamID: away,
+                round: round, groupIndex: groupIndex,
+                matchIndex: matchIndex, seed: seed,
+                homeSource: _homeSourceData.flatMap { try? JSONDecoder().decode(FixtureSlotSource.self, from: $0) },
+                awaySource: _awaySourceData.flatMap { try? JSONDecoder().decode(FixtureSlotSource.self, from: $0) })
     }
 }
 

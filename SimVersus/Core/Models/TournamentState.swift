@@ -10,6 +10,9 @@ import SwiftData
 
 @Model
 final class TournamentState {
+    /// Schema version for forward/backward compatibility. v1 = original,
+    /// v2 = adds FixtureSlotSource, v3 = adds competitionID/tournamentSeed.
+    var schemaVersion: Int
     /// Stable identifier for the tournament run.
     var id: UUID
     /// TournamentFormat.rawValue so it survives the enum.
@@ -75,6 +78,7 @@ final class TournamentState {
 
     init(format: TournamentFormat, playerTeamID: String,
          teams: [String], fixtures: [Fixture]) {
+        self.schemaVersion = 1
         self.id = UUID()
         self.formatRaw = format.rawValue
         self.playerTeamID = playerTeamID
