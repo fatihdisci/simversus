@@ -3797,6 +3797,146 @@
         "tr" : { "stringUnit" : { "state" : "translated", "value" : "Dünya Arenası yükleniyor…" } }
       }
     },
+    "common.retry" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Retry" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Tekrar Dene" } }
+      }
+    },
+    "tournament.worldArena.replace.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Start a New Tournament?" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Yeni Turnuva Başlatılsın mı?" } }
+      }
+    },
+    "tournament.worldArena.replace.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Your active World Arena progress will be replaced." } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Aktif Dünya Arenası ilerlemen silinecek." } }
+      }
+    },
+    "tournament.worldArena.replace.confirm" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Start New Tournament" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Yeni Turnuva Başlat" } }
+      }
+    },
+    "tournament.group.playerNation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Your nation" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Senin ulusun" } }
+      }
+    },
+    "tournament.group.matchday" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Matchday" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Maç Günü" } }
+      }
+    },
+    "tournament.group.simulating" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Other matches are being played…" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Diğer maçlar oynanıyor…" } }
+      }
+    },
+    "tournament.group.complete" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Group Stage Complete" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Grup Aşaması Tamamlandı" } }
+      }
+    },
+    "tournament.group.nextMatch" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Your Next Match" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Sıradaki Maçın" } }
+      }
+    },
+    "tournament.group.watch" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Watch Match" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Maçı İzle" } }
+      }
+    },
+    "tournament.group.name" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Group %@" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "%@ Grubu" } }
+      }
+    },
+    "tournament.group.columns" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "P   GD   Pts" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "O   AV   P" } }
+      }
+    },
+    "tournament.group.fixtures" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Fixtures and Results" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Fikstür ve Sonuçlar" } }
+      }
+    },
+    "tournament.bestThird.view" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Best Third-Placed Teams" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "En İyi Üçüncüler" } }
+      }
+    },
+    "tournament.error.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Tournament Unavailable" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Turnuva Kullanılamıyor" } }
+      }
+    },
+    "tournament.error.missingState" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "This tournament could not be loaded." } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Bu turnuva yüklenemedi." } }
+      }
+    },
+    "tournament.error.malformedState" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Saved tournament data is incomplete." } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Kayıtlı turnuva verisi eksik." } }
+      }
+    },
+    "tournament.error.missingTeam" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "A national team could not be found." } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Bir milli takım bulunamadı." } }
+      }
+    },
+    "tournament.error.progression" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Tournament progress could not be saved." } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Turnuva ilerlemesi kaydedilemedi." } }
+      }
+    },
+    "tournament.error.returnLobby" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Return to Tournament Lobby" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Turnuva Lobisine Dön" } }
+      }
+    },
     "Turnuva" : {
       "comment" : "A tournament button.",
       "isCommentAutoGenerated" : true

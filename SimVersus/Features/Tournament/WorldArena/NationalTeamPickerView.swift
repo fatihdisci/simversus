@@ -1,13 +1,23 @@
 //  NationalTeamPickerView.swift
 
 import SwiftUI
+import SwiftData
 
 struct NationalTeamPickerView: View {
-    let onContinue: (String) -> Void
+    let onContinue: (String, UUID?) -> Void
 
     @State private var selectedTeamID: String?
     @State private var searchText = ""
+    @State private var showReplaceConfirmation = false
+    @Query(sort: \TournamentState.startedAt, order: .reverse)
+    private var tournaments: [TournamentState]
     private let teams = NationalTeamStore().allTeams
+
+    private var activeWorldArenaID: UUID? {
+        tournaments.first {
+            $0.competitionID == TournamentDefinition.WorldArena.id && $0.completedAt == nil
+        }?.id
+    }
 
     private var filteredTeams: [NationalTeamDefinition] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -45,13 +55,30 @@ struct NationalTeamPickerView: View {
         .searchable(text: $searchText,
                     prompt: "tournament.worldArena.picker.search")
         .safeAreaInset(edge: .bottom) { continueBar }
+        .confirmationDialog("tournament.worldArena.replace.title",
+                            isPresented: $showReplaceConfirmation,
+                            titleVisibility: .visible) {
+            Button("tournament.worldArena.replace.confirm", role: .destructive) {
+                if let selectedTeamID {
+                    onContinue(selectedTeamID, activeWorldArenaID)
+                }
+            }
+            Button("common.cancel", role: .cancel) {}
+        } message: {
+            Text("tournament.worldArena.replace.message")
+        }
     }
 
     private var continueBar: some View {
         ArenaCTAButton(title: "common.continue",
                        systemImage: "arrow.right",
                        isEnabled: selectedTeamID != nil) {
-            if let selectedTeamID { onContinue(selectedTeamID) }
+            guard let selectedTeamID else { return }
+            if activeWorldArenaID != nil {
+                showReplaceConfirmation = true
+            } else {
+                onContinue(selectedTeamID, nil)
+            }
         }
         .padding(.horizontal, Spacing.l)
         .padding(.vertical, Spacing.s)
@@ -111,6 +138,7 @@ private struct NationalTeamRow: View {
 }
 
 #Preview {
-    NavigationStack { NationalTeamPickerView(onContinue: { _ in }) }
+    NavigationStack { NationalTeamPickerView(onContinue: { _, _ in }) }
+        .modelContainer(for: [TournamentState.self], inMemory: true)
         .preferredColorScheme(.dark)
 }

@@ -86,13 +86,24 @@ struct RootView: View {
             }
 
         case .worldArenaTeamPicker:
-            NationalTeamPickerView { playerTeamID in
-                startWorldArena(playerTeamID: playerTeamID)
+            NationalTeamPickerView { playerTeamID, tournamentToReplace in
+                startWorldArena(playerTeamID: playerTeamID,
+                                replacing: tournamentToReplace)
             }
 
         case .worldArenaGroups(let tournamentID):
-            ProgressView("tournament.worldArena.loading")
-                .task { _ = tournamentID }
+            WorldArenaGroupStageView(
+                tournamentID: tournamentID,
+                onPlayMatch: { config, fixture in
+                    path.append(.match(config, context: .worldArena(
+                        tournamentID: tournamentID,
+                        fixtureID: fixture.id,
+                        stage: .group)))
+                },
+                onViewBestThirds: {
+                    path.append(.worldArenaBestThirds(tournamentID: tournamentID))
+                },
+                onReturnToLobby: { path = [.tournamentLobby] })
 
         case .worldArenaBestThirds(let tournamentID):
             ProgressView("tournament.worldArena.loading")
@@ -225,24 +236,18 @@ struct RootView: View {
         }
     }
 
-    private func startWorldArena(playerTeamID: String) {
-        let catalog = NationalTeamStore()
-        let definition = TournamentDefinition.worldArena2026(catalog: catalog)
-        let seed = UInt64.random(in: 1 ... .max)
-        guard let stage = try? TournamentEngine.generateWorldGroupStage(
-            definition: definition,
-            catalog: catalog,
-            tournamentSeed: seed) else { return }
-        let state = TournamentState(
-            format: .grand,
+    private func startWorldArena(playerTeamID: String, replacing tournamentID: UUID?) {
+        if let tournamentID {
+            let id = tournamentID
+            let descriptor = FetchDescriptor<TournamentState>(
+                predicate: #Predicate { $0.id == id })
+            if let old = try? modelContext.fetch(descriptor).first {
+                modelContext.delete(old)
+            }
+        }
+        guard let state = try? WorldArenaSessionController.create(
             playerTeamID: playerTeamID,
-            teams: catalog.allTeams.map(\.id),
-            fixtures: stage.fixtures,
-            competitionID: definition.id,
-            tournamentSeed: seed,
-            groupAssignments: stage.groups)
-        modelContext.insert(state)
-        try? modelContext.save()
+            modelContext: modelContext) else { return }
         path = [.worldArenaGroups(tournamentID: state.id)]
     }
 }
