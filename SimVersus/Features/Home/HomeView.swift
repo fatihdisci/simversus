@@ -11,6 +11,7 @@ struct HomeView: View {
 
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var purchaseManager: PurchaseManager
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var showSettings = false
     @State private var showRemoveAds = false
 
@@ -18,16 +19,26 @@ struct HomeView: View {
         ZStack {
             ArenaBackground()
 
-            VStack(spacing: 0) {
-                brandHeader
-                Spacer(minLength: Spacing.l)
-                hero
-                Spacer(minLength: Spacing.xl)
-                actionPanel
+            // A GeometryReader + ScrollView lets the layout breathe on tall
+            // devices (spacers expand, no scroll) yet stay reachable on short
+            // ones (iPhone SE / large Dynamic Type): content taller than the
+            // viewport scrolls instead of clipping.
+            GeometryReader { proxy in
+                ScrollView {
+                    VStack(spacing: 0) {
+                        brandHeader
+                        Spacer(minLength: Spacing.l)
+                        hero(arenaSize: arenaSize(for: proxy.size.height))
+                        Spacer(minLength: Spacing.xl)
+                        actionPanel
+                    }
+                    .padding(.horizontal, Spacing.l)
+                    .padding(.top, Spacing.m)
+                    .padding(.bottom, Spacing.xl)
+                    .frame(minHeight: proxy.size.height, alignment: .top)
+                }
+                .scrollBounceBehavior(.basedOnSize)
             }
-            .padding(.horizontal, Spacing.l)
-            .padding(.top, Spacing.m)
-            .padding(.bottom, Spacing.xl)
         }
         .sheet(isPresented: $showSettings) {
             SettingsView(onDone: { showSettings = false })
@@ -36,6 +47,8 @@ struct HomeView: View {
             RemoveAdsSheet()
         }
     }
+
+    // MARK: Header
 
     private var brandHeader: some View {
         HStack {
@@ -56,11 +69,13 @@ struct HomeView: View {
         }
     }
 
-    private var hero: some View {
-        VStack(spacing: Spacing.l) {
-            AmbientArenaView()
+    // MARK: Hero
 
-            VStack(spacing: Spacing.s) {
+    private func hero(arenaSize: CGFloat) -> some View {
+        VStack(spacing: Spacing.m) {
+            AmbientArenaView(size: arenaSize)
+
+            VStack(spacing: Spacing.xs) {
                 Text("home.title")
                     .font(.display)
                     .foregroundStyle(Palette.textPrimary)
@@ -73,52 +88,75 @@ struct HomeView: View {
         }
     }
 
+    /// Shrink the ambient arena on short screens or at large Dynamic Type so the
+    /// action card never gets pushed off-screen, without losing the brand.
+    private func arenaSize(for availableHeight: CGFloat) -> CGFloat {
+        let isShort = availableHeight < Layout.heroCompactHeightThreshold
+        let isLargeType = dynamicTypeSize >= .accessibility1
+        return (isShort || isLargeType) ? Layout.heroArenaCompact : Layout.heroArenaRegular
+    }
+
+    // MARK: Action panel
+
     private var actionPanel: some View {
         ArenaSurface(padding: Spacing.l) {
-            VStack(spacing: Spacing.l) {
-                HStack {
-                    Label(durationMetaText, systemImage: "timer")
-                    Spacer()
-                    Text("home.meta.spectator")
-                }
-                .font(.caption).foregroundStyle(Palette.textSecondary)
-
-                VStack(spacing: Spacing.s) {
-                    ArenaCTAButton(title: "home.play", systemImage: "arrow.right", action: onPlay)
-
-                    Button(action: onTournament) {
-                        Label("Turnuva", systemImage: "trophy.fill")
-                            .font(.sectionLabel)
-                            .foregroundStyle(Palette.accent)
-                            .frame(maxWidth: .infinity, minHeight: Layout.minTouchTarget)
-                    }.buttonStyle(.plain)
-
-                    Button(action: onTrophyCabinet) {
-                        Label("Kupa Dolabı", systemImage: "display.case")
-                            .font(.sectionLabel)
-                            .foregroundStyle(.yellow)
-                            .frame(maxWidth: .infinity, minHeight: Layout.minTouchTarget)
-                    }.buttonStyle(.plain)
-
-                    Button(action: onHistory) {
-                        Label("home.history", systemImage: "clock.arrow.circlepath")
-                            .font(.sectionLabel)
-                            .foregroundStyle(Palette.textSecondary)
-                            .frame(maxWidth: .infinity, minHeight: Layout.minTouchTarget)
-                    }.buttonStyle(.plain)
-
-                    if !purchaseManager.isAdFree {
-                        Button(action: { showRemoveAds = true }) {
-                            Text("home.removeAds")
-                                .font(.caption)
-                                .foregroundStyle(Palette.textTertiary)
-                                .frame(maxWidth: .infinity, minHeight: Layout.minTouchTarget)
-                        }
-                        .buttonStyle(.plain)
-                    }
+            VStack(spacing: Spacing.m) {
+                matchMetadataRow
+                ArenaCTAButton(title: "home.play", systemImage: "arrow.right", action: onPlay)
+                modeActions
+                if !purchaseManager.isAdFree {
+                    removeAdsUtility
                 }
             }
         }
+    }
+
+    /// Match duration + spectator note, baseline-aligned with matching icon sizes.
+    private var matchMetadataRow: some View {
+        HStack(spacing: Spacing.m) {
+            Label(durationMetaText, systemImage: "timer")
+            Spacer(minLength: Spacing.s)
+            Label("home.meta.spectator", systemImage: "eye")
+        }
+        .font(.caption)
+        .foregroundStyle(Palette.textSecondary)
+        .labelStyle(.titleAndIcon)
+        .lineLimit(1)
+        .minimumScaleFactor(0.8)
+    }
+
+    /// The three second-level modes as one equal-weight family. Tournament,
+    /// Trophy Cabinet and Match History share a single component and differ only
+    /// by accent — History is no longer greyed-out, and Trophy Cabinet now has a
+    /// properly aligned icon instead of bare yellow text.
+    private var modeActions: some View {
+        HStack(spacing: Spacing.s) {
+            ArenaModeAction(titleKey: "home.tournament",
+                            systemImage: "trophy.fill",
+                            accent: Palette.accent,
+                            action: onTournament)
+            ArenaModeAction(titleKey: "home.trophyCabinet",
+                            systemImage: "display.case",
+                            accent: Palette.accentWarning,
+                            action: onTrophyCabinet)
+            ArenaModeAction(titleKey: "home.history",
+                            systemImage: "clock.arrow.circlepath",
+                            accent: Palette.info,
+                            action: onHistory)
+        }
+    }
+
+    /// Lowest-priority utility — readable (not near-invisible) but clearly below
+    /// the mode family and never CTA-like.
+    private var removeAdsUtility: some View {
+        Button(action: { showRemoveAds = true }) {
+            Label("home.removeAds", systemImage: "sparkles")
+                .font(.caption)
+                .foregroundStyle(Palette.textSecondary)
+                .frame(maxWidth: .infinity, minHeight: Layout.minTouchTarget)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private var durationMetaText: String {
@@ -127,9 +165,35 @@ struct HomeView: View {
     }
 }
 
-#Preview {
+// MARK: - Previews
+
+#Preview("Default") {
     HomeView(onPlay: {}, onHistory: {}, onTournament: {}, onTrophyCabinet: {})
         .environmentObject(AppState())
         .environmentObject(PurchaseManager.shared)
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Compact height") {
+    HomeView(onPlay: {}, onHistory: {}, onTournament: {}, onTrophyCabinet: {})
+        .environmentObject(AppState())
+        .environmentObject(PurchaseManager.shared)
+        .frame(height: 620)
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Large Dynamic Type") {
+    HomeView(onPlay: {}, onHistory: {}, onTournament: {}, onTrophyCabinet: {})
+        .environmentObject(AppState())
+        .environmentObject(PurchaseManager.shared)
+        .environment(\.dynamicTypeSize, .accessibility2)
+        .preferredColorScheme(.dark)
+}
+
+#Preview("English") {
+    HomeView(onPlay: {}, onHistory: {}, onTournament: {}, onTrophyCabinet: {})
+        .environmentObject(AppState())
+        .environmentObject(PurchaseManager.shared)
+        .environment(\.locale, .init(identifier: "en"))
         .preferredColorScheme(.dark)
 }

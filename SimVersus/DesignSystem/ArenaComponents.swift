@@ -162,6 +162,62 @@ struct ArenaCTAButton: View {
     }
 }
 
+/// A second-level navigation tile for the home screen's mode actions
+/// (Tournament / Trophy Cabinet / Match History). All three share one layout
+/// family — icon box over label, equal footprint, identical typography — so
+/// only the `accent` differs. Deliberately lighter than `ArenaCTAButton`: the
+/// single primary CTA stays dominant while these read as an equal-weight set.
+struct ArenaModeAction: View {
+    let titleKey: LocalizedStringKey
+    let systemImage: String
+    /// Accent tints only the glyph and its box — never the label, so no tile
+    /// ever looks disabled (the label is always full-strength `textPrimary`).
+    var accent: Color = Palette.accent
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: Spacing.s) {
+                Image(systemName: systemImage)
+                    .font(.system(size: Layout.modeActionIcon, weight: .semibold))
+                    .foregroundStyle(accent)
+                    .frame(width: Layout.modeActionIconBox, height: Layout.modeActionIconBox)
+                    .background(accent.opacity(0.16),
+                                in: RoundedRectangle(cornerRadius: Radius.badge, style: .continuous))
+                Text(titleKey)
+                    .font(.caption)
+                    .foregroundStyle(Palette.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .frame(maxWidth: .infinity, minHeight: Layout.modeActionMinHeight)
+            .padding(.vertical, Spacing.s)
+            .padding(.horizontal, Spacing.xs)
+            .background(Palette.bgElevatedStrong.opacity(0.55),
+                        in: RoundedRectangle(cornerRadius: Radius.button, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: Radius.button, style: .continuous)
+                    .stroke(Palette.borderSubtle, lineWidth: 1)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(ArenaTileButtonStyle())
+        .accessibilityLabel(Text(titleKey))
+        .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// Subtle press feedback for tile-shaped controls — a small scale + dim, matching
+/// the CTA's press animation so every tap in the app feels the same.
+struct ArenaTileButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .opacity(configuration.isPressed ? 0.85 : 1)
+            .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
+    }
+}
+
 struct ArenaIconButton: View {
     let systemName: String
     let accessibilityKey: LocalizedStringKey

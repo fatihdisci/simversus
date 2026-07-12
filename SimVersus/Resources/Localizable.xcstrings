@@ -3532,6 +3532,40 @@
           }
         }
       }
+    },
+    "home.tournament": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tournament"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turnuva"
+          }
+        }
+      }
+    },
+    "home.trophyCabinet": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trophy Cabinet"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kupa Dolab\u0131"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

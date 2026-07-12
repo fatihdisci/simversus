@@ -8,6 +8,10 @@
 import SwiftUI
 
 struct AmbientArenaView: View {
+    /// Side length of the square canvas. Adaptive: Home shrinks it on short
+    /// screens so the action card stays fully visible without losing the brand.
+    var size: CGFloat = Layout.heroArenaRegular
+
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var simulation = AmbientArenaSimulation()
@@ -29,7 +33,7 @@ struct AmbientArenaView: View {
                 AmbientArenaRenderer.draw(simulation, into: context, size: size)
             }
         }
-        .frame(width: 250, height: 250)
+        .frame(width: size, height: size)
         .onAppear { isVisible = true }
         .onDisappear { isVisible = false }
         .onChange(of: isPaused) { _, paused in
@@ -44,9 +48,10 @@ struct AmbientArenaView: View {
 // MARK: - Renderer
 
 private enum AmbientArenaRenderer {
-    /// Ring radius in points inside the 250pt canvas. Chosen so the widest glow
-    /// stroke and a ball's halo at the wall both stay inside the frame.
-    static let ringRadius: CGFloat = 108
+    /// Ring radius as a fraction of the canvas side, so the arena scales with the
+    /// frame. Chosen (108/250) so the widest glow stroke and a ball's halo at the
+    /// wall both stay inside the frame at any size.
+    static let ringRadiusFraction: CGFloat = 108.0 / 250.0
 
     /// Neutral orb palette — identity colours, never team colours. All three
     /// already tint `ArenaBackground`, so the composition harmonises.
@@ -54,18 +59,19 @@ private enum AmbientArenaRenderer {
 
     static func draw(_ sim: AmbientArenaSimulation, into context: GraphicsContext, size: CGSize) {
         let center = CGPoint(x: size.width / 2, y: size.height / 2)
+        let ringRadius = min(size.width, size.height) * ringRadiusFraction
         let scale = ringRadius / AmbientArenaSimulation.Constants.simRadius
 
-        drawVolumeFill(context, center: center)
-        drawRingGlow(context, center: center)
-        drawNotches(sim, context, center: center)
-        drawDashedRing(sim, context, center: center)
+        drawVolumeFill(context, center: center, ringRadius: ringRadius)
+        drawRingGlow(context, center: center, ringRadius: ringRadius)
+        drawNotches(sim, context, center: center, ringRadius: ringRadius)
+        drawDashedRing(sim, context, center: center, ringRadius: ringRadius)
         drawTrails(sim, context, center: center, scale: scale)
         drawBalls(sim, context, center: center, scale: scale)
     }
 
     // 1. Inner volume — a soft radial wash so the arena reads as a lit floor.
-    private static func drawVolumeFill(_ context: GraphicsContext, center: CGPoint) {
+    private static func drawVolumeFill(_ context: GraphicsContext, center: CGPoint, ringRadius: CGFloat) {
         let rect = circleRect(center: center, radius: ringRadius)
         context.fill(
             Circle().path(in: rect),
@@ -75,7 +81,7 @@ private enum AmbientArenaRenderer {
     }
 
     // 2. Neon wall — stacked glow strokes (a whisper of the match-scene recipe).
-    private static func drawRingGlow(_ context: GraphicsContext, center: CGPoint) {
+    private static func drawRingGlow(_ context: GraphicsContext, center: CGPoint, ringRadius: CGFloat) {
         let path = Circle().path(in: circleRect(center: center, radius: ringRadius))
         context.stroke(path, with: .color(Palette.energy.opacity(0.04)), lineWidth: 14)
         context.stroke(path, with: .color(Palette.energy.opacity(0.08)), lineWidth: 8)
@@ -86,7 +92,7 @@ private enum AmbientArenaRenderer {
 
     // 3. Rotation notches — three short ticks on the wall so the (otherwise
     //    featureless) ring visibly rotates.
-    private static func drawNotches(_ sim: AmbientArenaSimulation, _ context: GraphicsContext, center: CGPoint) {
+    private static func drawNotches(_ sim: AmbientArenaSimulation, _ context: GraphicsContext, center: CGPoint, ringRadius: CGFloat) {
         var layer = context
         layer.translateBy(x: center.x, y: center.y)
         layer.rotate(by: .radians(Double(sim.notchAngle)))
@@ -102,7 +108,7 @@ private enum AmbientArenaRenderer {
 
     // 4. Rotating dashed inner ring — echoes the old hero's dashed circle and
     //    adds parallax depth (spins faster than the notches).
-    private static func drawDashedRing(_ sim: AmbientArenaSimulation, _ context: GraphicsContext, center: CGPoint) {
+    private static func drawDashedRing(_ sim: AmbientArenaSimulation, _ context: GraphicsContext, center: CGPoint, ringRadius: CGFloat) {
         var layer = context
         layer.translateBy(x: center.x, y: center.y)
         layer.rotate(by: .radians(Double(sim.dashAngle)))

@@ -51,4 +51,25 @@ enum Layout {
     static let ctaAccessory: CGFloat = 30
     /// Point size of the glyph inside the trailing accessory.
     static let ctaAccessoryIcon: CGFloat = 15
+
+    // MARK: Home mode actions
+
+    /// Minimum height of a mode-action tile (Tournament / Trophy Cabinet /
+    /// History) — above the 44pt touch minimum so the icon box and label breathe.
+    static let modeActionMinHeight: CGFloat = 64
+    /// Side of the rounded icon box inside a mode-action tile. Shared by all
+    /// three so their glyphs share one optical footprint.
+    static let modeActionIconBox: CGFloat = 34
+    /// Point size of the glyph inside a mode-action icon box.
+    static let modeActionIcon: CGFloat = 17
+
+    // MARK: Home hero
+
+    /// Ambient arena size on tall devices — the full brand statement.
+    static let heroArenaRegular: CGFloat = 240
+    /// Ambient arena size on short devices (iPhone SE) or large Dynamic Type,
+    /// small enough to keep the action card fully on screen but still present.
+    static let heroArenaCompact: CGFloat = 168
+    /// Screen-height threshold below which the compact arena size is used.
+    static let heroCompactHeightThreshold: CGFloat = 700
 }
