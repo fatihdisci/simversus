@@ -19,6 +19,10 @@ struct Fixture: Codable, Equatable, Identifiable {
     var groupIndex: Int?
     /// Position within the round/group for bracket ordering.
     var matchIndex: Int
+    /// Matchday (1-based) within a group's round-robin. Nil for knockout
+    /// fixtures and for legacy group fixtures created before Commit 3 — the
+    /// optional keeps old persisted JSON decodable (synthesized `decodeIfPresent`).
+    var matchday: Int?
     /// Deterministic seed for the match engine.
     var seed: UInt64
     /// Encoded FixtureSlotSource for home slot (nil = backward-compatible).
@@ -28,6 +32,7 @@ struct Fixture: Codable, Equatable, Identifiable {
 
     init(id: String, homeTeamID: String, awayTeamID: String,
          round: Int, groupIndex: Int?, matchIndex: Int, seed: UInt64,
+         matchday: Int? = nil,
          homeSource: FixtureSlotSource? = nil,
          awaySource: FixtureSlotSource? = nil) {
         self.id = id
@@ -36,17 +41,18 @@ struct Fixture: Codable, Equatable, Identifiable {
         self.round = round
         self.groupIndex = groupIndex
         self.matchIndex = matchIndex
+        self.matchday = matchday
         self.seed = seed
         self._homeSourceData = homeSource.flatMap { try? JSONEncoder().encode($0) }
         self._awaySourceData = awaySource.flatMap { try? JSONEncoder().encode($0) }
     }
 
-    /// Creates a new fixture with updated team IDs, preserving the original seed
-    /// and slot sources.
+    /// Creates a new fixture with updated team IDs, preserving the original seed,
+    /// matchday and slot sources.
     func withTeams(home: String, away: String) -> Fixture {
         Fixture(id: id, homeTeamID: home, awayTeamID: away,
                 round: round, groupIndex: groupIndex,
-                matchIndex: matchIndex, seed: seed,
+                matchIndex: matchIndex, seed: seed, matchday: matchday,
                 homeSource: _homeSourceData.flatMap { try? JSONDecoder().decode(FixtureSlotSource.self, from: $0) },
                 awaySource: _awaySourceData.flatMap { try? JSONDecoder().decode(FixtureSlotSource.self, from: $0) })
     }

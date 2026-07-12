@@ -160,6 +160,23 @@ enum TournamentEngine {
         return sim.runToCompletion()
     }
 
+    // MARK: - World Arena group stage
+
+    /// Facade over `WorldGroupStageEngine`: draws the 48-team field and generates
+    /// all 72 group fixtures as one aggregate. Leaves the legacy mini/classic/
+    /// groupKO/grand flow untouched. Throws if the definition is not a valid
+    /// 4-pot × 12-group / 48-team World Arena shape.
+    static func generateWorldGroupStage(definition: TournamentDefinition,
+                                        catalog: NationalTeamStore,
+                                        tournamentSeed: UInt64) throws -> WorldGroupStage {
+        let groups = try WorldGroupStageEngine.drawGroups(definition: definition,
+                                                          teams: catalog.allTeams,
+                                                          tournamentSeed: tournamentSeed)
+        let fixtures = WorldGroupStageEngine.generateFixtures(groups: groups,
+                                                              tournamentSeed: tournamentSeed)
+        return WorldGroupStage(groups: groups, fixtures: fixtures)
+    }
+
     // MARK: - Group standings
 
     /// Calculates group standings from the results of the group stage.
@@ -327,8 +344,11 @@ enum TournamentEngine {
 
 // MARK: - Group standing
 
-/// A team's record within a group.
-struct GroupStanding: Equatable {
+/// A team's record within a group. Codable + Identifiable so standings can be
+/// persisted and diffed; `goalDifference` is computed (never stored twice).
+/// `groupID` is optional context — nil for legacy callers, set by the World
+/// Arena engine so a standing knows which group it belongs to.
+struct GroupStanding: Codable, Equatable, Identifiable {
     let teamID: String
     let played: Int
     let wins: Int
@@ -337,4 +357,26 @@ struct GroupStanding: Equatable {
     let goalsFor: Int
     let goalsAgainst: Int
     let points: Int
+    /// Which group this record belongs to (e.g. "A"). Optional for backward
+    /// compatibility with the legacy `TournamentEngine.groupStandings` caller.
+    var groupID: String?
+
+    var id: String { teamID }
+
+    /// Goals scored minus conceded — computed, so it can never drift from the
+    /// stored goal totals.
+    var goalDifference: Int { goalsFor - goalsAgainst }
+
+    init(teamID: String, played: Int, wins: Int, draws: Int, losses: Int,
+         goalsFor: Int, goalsAgainst: Int, points: Int, groupID: String? = nil) {
+        self.teamID = teamID
+        self.played = played
+        self.wins = wins
+        self.draws = draws
+        self.losses = losses
+        self.goalsFor = goalsFor
+        self.goalsAgainst = goalsAgainst
+        self.points = points
+        self.groupID = groupID
+    }
 }
