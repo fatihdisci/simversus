@@ -289,17 +289,69 @@ enum TournamentEngine {
             // For now the caller pre-orders winners correctly.
             let idx = groupIndex * 2 + rank // assumes advancePerGroup=2
             return idx < winners.count ? winners[idx] : "TBD"
-        case .bestThirdPlace(let rank):
-            return rank < winners.count ? winners[rank] : "TBD"
-        case .winner(let fixtureID):
-            if let result = resultMap[fixtureID] {
-                return result.winnerTeamID
-                    ?? (result.homeScore >= result.awayScore
-                        ? fallbackID : fallbackID)
-            }
+        case .bestThirdPlace:
+            // Best-third qualifiers are not carried in the generic `winners`
+            // array — resolving them needs the typed SlotResolutionContext
+            // (Commit 4). Leave unresolved here rather than guessing.
             return "TBD"
+        case .winner(let fixtureID):
+            // A knockout result always carries a concrete winnerTeamID
+            // (KnockoutMatchResolver guarantees it). If the fixture is unplayed
+            // or somehow lacks a winner, the slot stays unresolved — never a
+            // silent home/away guess.
+            guard let result = resultMap[fixtureID] else { return "TBD" }
+            return result.winnerTeamID ?? "TBD"
         case .pending:
             return fallbackID == "TBD" ? "TBD" : fallbackID
+        }
+    }
+
+    // MARK: - Typed slot resolution (World Arena foundation for Commit 4)
+
+    /// Everything the knockout bracket needs to resolve a slot to a concrete
+    /// team, supplied explicitly instead of a positional `winners` array. This
+    /// is the sound foundation for the Round-of-32 bracket built in Commit 4;
+    /// this commit only defines it and the resolver — it does not wire a bracket.
+    struct SlotResolutionContext {
+        /// Ordered team IDs per group (index = group index), best-ranked first.
+        let groupRankings: [[String]]
+        /// The best third-placed team IDs that qualified, in rank order.
+        let bestThirdPlacedTeamIDs: [String]
+        /// Played results keyed by fixture ID.
+        let fixtureResults: [String: FixtureResult]
+    }
+
+    /// The outcome of resolving one slot source: either a concrete team or a
+    /// clear "not yet" — never a fabricated fallback or a "TBD" business value.
+    enum SlotResolution: Equatable {
+        case resolved(String)
+        case unresolved
+    }
+
+    /// Resolves a slot source against an explicit context. Pure and total —
+    /// out-of-range ranks or missing results yield `.unresolved`.
+    static func resolveSlot(_ source: FixtureSlotSource,
+                            context: SlotResolutionContext) -> SlotResolution {
+        switch source {
+        case .team(let id):
+            return .resolved(id)
+        case .groupRank(let groupIndex, let rank):
+            guard context.groupRankings.indices.contains(groupIndex),
+                  context.groupRankings[groupIndex].indices.contains(rank) else {
+                return .unresolved
+            }
+            return .resolved(context.groupRankings[groupIndex][rank])
+        case .bestThirdPlace(let rank):
+            guard context.bestThirdPlacedTeamIDs.indices.contains(rank) else {
+                return .unresolved
+            }
+            return .resolved(context.bestThirdPlacedTeamIDs[rank])
+        case .winner(let fixtureID):
+            guard let result = context.fixtureResults[fixtureID],
+                  let winner = result.winnerTeamID else { return .unresolved }
+            return .resolved(winner)
+        case .pending:
+            return .unresolved
         }
     }
 
