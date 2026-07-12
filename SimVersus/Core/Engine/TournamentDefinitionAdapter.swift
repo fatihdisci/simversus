@@ -28,22 +28,15 @@ enum TournamentDefinitionAdapter {
         }
 
         let knockoutSlotCount: Int
-        let roundNames: [String]
         if groupCount > 0 {
             knockoutSlotCount = groupCount * format.advancePerGroup
         } else {
             knockoutSlotCount = teamCount
         }
-        // Build round names from the number of slots: 32→5 rounds, 16→4, 8→3, 4→2
-        let totalRounds = Int(log2(Double(knockoutSlotCount)))
-        switch totalRounds {
-        case 1: roundNames = ["Final"]
-        case 2: roundNames = ["Yarı Final", "Final"]
-        case 3: roundNames = ["Çeyrek Final", "Yarı Final", "Final"]
-        case 4: roundNames = ["Son 16", "Çeyrek Final", "Yarı Final", "Final"]
-        case 5: roundNames = ["Son 32", "Son 16", "Çeyrek Final", "Yarı Final", "Final"]
-        default: roundNames = (1...totalRounds).map { "Tur \($0)" }
-        }
+        // Round names are localization KEYS resolved from the slot count
+        // (32→[r32,r16,QF,SF,Final], 16→[r16,QF,SF,Final], …). No user-facing
+        // strings are baked in here — they come from the String Catalog.
+        let roundNameKeys = TournamentRoundKey.keys(forSlotCount: knockoutSlotCount)
 
         return TournamentDefinition(
             id: format.rawValue,
@@ -55,11 +48,12 @@ enum TournamentDefinitionAdapter {
             groups: groups,
             knockout: KnockoutDefinition(
                 slotCount: knockoutSlotCount,
-                roundNames: roundNames,
+                roundNameKeys: roundNameKeys,
                 hasThirdPlaceMatch: false),
             branding: TournamentBranding(
                 accentColor: "#E8A21D",
                 subtitleKey: nil,
+                disclaimerKey: nil,
                 backgroundAsset: nil))
     }
 
@@ -71,6 +65,4 @@ enum TournamentDefinitionAdapter {
         case .grand:   return "tournament.format.grand"
         }
     }
-
-    private static func log2(_ x: Double) -> Double { Darwin.log2(x) }
 }
