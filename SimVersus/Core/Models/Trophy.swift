@@ -29,6 +29,13 @@ final class Trophy {
     var isCustomTeam: Bool
     /// When the tournament was won.
     var wonAt: Date
+    /// Optional special-competition identity. Nil for legacy club trophies.
+    var competitionID: String?
+    /// Tournament run that awarded this trophy; used for idempotent insertion.
+    var sourceTournamentID: UUID?
+    /// National identity snapshot for World Arena trophies.
+    var nationalISOCode: String?
+    var nationalFlagAsset: String?
 
     /// The badge shape at time of win.
     var badgeShape: BadgeShape { BadgeShape(rawValue: badgeShapeRaw) ?? .star }
@@ -42,6 +49,10 @@ final class Trophy {
          secondaryHex: String,
          badgeShape: BadgeShape,
          isCustomTeam: Bool,
+         competitionID: String? = nil,
+         sourceTournamentID: UUID? = nil,
+         nationalISOCode: String? = nil,
+         nationalFlagAsset: String? = nil,
          wonAt: Date = .now) {
         self.id = id
         self.formatRaw = format.rawValue
@@ -52,6 +63,10 @@ final class Trophy {
         self.secondaryHex = secondaryHex
         self.badgeShapeRaw = badgeShape.rawValue
         self.isCustomTeam = isCustomTeam
+        self.competitionID = competitionID
+        self.sourceTournamentID = sourceTournamentID
+        self.nationalISOCode = nationalISOCode
+        self.nationalFlagAsset = nationalFlagAsset
         self.wonAt = wonAt
     }
 

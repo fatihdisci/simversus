@@ -128,8 +128,11 @@ struct RootView: View {
                 onHome: { path = [] })
 
         case .worldArenaChampion(let tournamentID):
-            ProgressView("tournament.worldArena.loading")
-                .task { _ = tournamentID }
+            WorldArenaChampionView(
+                tournamentID: tournamentID,
+                onTrophyCabinet: { path = [.trophyCabinet] },
+                onHome: { path = [] },
+                onNewTournament: { path = [.worldArenaIntro] })
 
         case .tournamentBracket(let tournamentID):
             TournamentBracketView(tournamentID: tournamentID,

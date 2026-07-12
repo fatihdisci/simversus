@@ -1,156 +1,149 @@
 //  TrophyCabinetView.swift
-//  Features/Tournament
-//
-//  Displays every tournament trophy the player has won. Trophies are grouped
-//  by format and sorted by recency. Tapping a trophy shows a detail card.
 
 import SwiftUI
 import SwiftData
 
 struct TrophyCabinetView: View {
     @Query(sort: \Trophy.wonAt, order: .reverse) private var trophies: [Trophy]
+    private let nationalCatalog = NationalTeamStore()
 
     var body: some View {
-        Group {
-            if trophies.isEmpty {
-                emptyState
-            } else {
+        ZStack {
+            ArenaBackground(primaryTint: Palette.accentWarning,
+                            secondaryTint: Palette.energy)
+            if trophies.isEmpty { emptyState }
+            else {
                 ScrollView {
-                    VStack(spacing: 16) {
+                    VStack(spacing: Spacing.l) {
                         summaryBanner
                         trophyGrid
                     }
-                    .padding()
+                    .padding(Spacing.l)
                 }
+                .scrollIndicators(.hidden)
             }
         }
-        .navigationTitle("Kupa Dolabı")
+        .navigationTitle("trophy.cabinet.title")
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    // MARK: - Empty
-
     private var emptyState: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "trophy.fill")
-                .font(.system(size: 56))
-                .foregroundStyle(.tertiary)
-            Text("Henüz kupa kazanmadın.")
-                .font(.headline)
-                .foregroundStyle(.secondary)
-            Text("Bir turnuvayı tamamla, ilk kupan burada yerini alsın.")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-                .multilineTextAlignment(.center)
+        ContentUnavailableView {
+            Label("trophy.cabinet.empty", systemImage: "trophy.fill")
+        } description: {
+            Text("trophy.cabinet.emptyHint")
         }
-        .padding()
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .foregroundStyle(Palette.textSecondary)
     }
-
-    // MARK: - Summary
 
     private var summaryBanner: some View {
-        let byFormat = Dictionary(grouping: trophies) { $0.format }
-        return HStack(spacing: 24) {
-            StatBanner(value: "\(trophies.count)", label: "Kupa")
-            ForEach(TournamentFormat.allCases, id: \.self) { format in
-                if let count = byFormat[format]?.count, count > 0 {
-                    StatBanner(value: "\(count)", label: format.displayName)
+        let worldCount = trophies.filter {
+            $0.competitionID == TournamentDefinition.WorldArena.id
+        }.count
+        return ArenaSurface {
+            HStack(spacing: Spacing.l) {
+                TrophyStat(value: trophies.count, key: "trophy.cabinet.total")
+                if worldCount > 0 {
+                    TrophyStat(value: worldCount, key: "tournament.worldArena.name")
                 }
+                Spacer()
+                Image(systemName: "trophy.fill")
+                    .font(.title2).foregroundStyle(Palette.accentWarning)
             }
         }
-        .padding()
-        .frame(maxWidth: .infinity)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
     }
-
-    // MARK: - Grid
 
     private var trophyGrid: some View {
-        LazyVGrid(columns: [.init(.adaptive(minimum: 100))], spacing: 12) {
+        LazyVGrid(columns: [.init(.adaptive(minimum: 132))], spacing: Spacing.m) {
             ForEach(trophies) { trophy in
-                trophyCard(trophy)
+                TrophyCard(trophy: trophy,
+                           nationalTeam: nationalCatalog.find(trophy.teamID))
             }
         }
-    }
-
-    private func trophyCard(_ trophy: Trophy) -> some View {
-        let primary = Color(hex: trophy.primaryHex)
-        let secondary = Color(hex: trophy.secondaryHex)
-
-        return VStack(spacing: 6) {
-            ZStack {
-                Image(systemName: "trophy.fill")
-                    .font(.system(size: 32))
-                    .foregroundStyle(formatColor(trophy.format))
-
-                TeamBadgeView(team: placeholderTeam(from: trophy),
-                              size: 22, showsCode: false)
-                    .offset(y: 4)
-            }
-
-            Text(trophy.teamName)
-                .font(.caption2)
-                .lineLimit(1)
-
-            Text(trophy.format.displayName)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-
-            Text(trophy.wonAt.formatted(date: .numeric, time: .omitted))
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-        }
-        .padding(8)
-        .background(primary.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
-    }
-
-    private func formatColor(_ format: TournamentFormat) -> Color {
-        switch format {
-        case .mini:     return .gray
-        case .classic:  return .orange
-        case .groupKO:  return .blue
-        case .grand:    return .yellow
-        }
-    }
-
-    /// Builds a lightweight Team just for the badge view.
-    private func placeholderTeam(from trophy: Trophy) -> Team {
-        Team(id: trophy.teamID,
-             nameKey: trophy.teamName,
-             nameTR: trophy.teamName,
-             nameEN: trophy.teamName,
-             short: trophy.teamShort,
-             primary: trophy.primaryHex,
-             secondary: trophy.secondaryHex,
-             badgeShape: trophy.badgeShape,
-             tier: 0,
-             baseStrength: 75,
-             stats: .balanced,
-             pattern: .solid)
     }
 }
 
-private struct StatBanner: View {
-    let value: String
-    let label: String
+private struct TrophyCard: View {
+    let trophy: Trophy
+    let nationalTeam: NationalTeamDefinition?
+
+    private var isWorldArena: Bool {
+        trophy.competitionID == TournamentDefinition.WorldArena.id
+    }
 
     var body: some View {
-        VStack(spacing: 2) {
-            Text(value)
-                .font(.headline)
-                .fontWeight(.bold)
-            Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+        VStack(spacing: Spacing.s) {
+            ZStack {
+                Image(systemName: "trophy.fill")
+                    .font(.system(size: 42))
+                    .foregroundStyle(isWorldArena ? Palette.accentWarning : formatColor)
+                identityMark.offset(y: 5)
+            }
+            Text(trophy.teamName).font(.caption).lineLimit(2)
+                .multilineTextAlignment(.center)
+            competitionLabel
+                .font(.caption2).foregroundStyle(Palette.textSecondary)
+                .lineLimit(1).minimumScaleFactor(0.75)
+            Text(trophy.wonAt.formatted(date: .numeric, time: .omitted))
+                .font(.caption2.monospacedDigit()).foregroundStyle(Palette.textTertiary)
+        }
+        .padding(Spacing.m)
+        .frame(maxWidth: .infinity, minHeight: 154)
+        .background(Color(hex: trophy.primaryHex).opacity(0.12),
+                    in: RoundedRectangle(cornerRadius: Radius.card))
+        .overlay(RoundedRectangle(cornerRadius: Radius.card)
+            .stroke(isWorldArena ? Palette.accentWarning.opacity(0.6)
+                                 : Palette.borderSubtle))
+        .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private var identityMark: some View {
+        if isWorldArena, let nationalTeam {
+            NationalFlagView(team: nationalTeam, style: .compact)
+        } else {
+            TeamBadgeView(team: placeholderTeam, size: 24, showsCode: false)
+        }
+    }
+
+    @ViewBuilder
+    private var competitionLabel: some View {
+        if isWorldArena { Text("tournament.worldArena.name") }
+        else { Text(verbatim: trophy.format.displayName) }
+    }
+
+    private var formatColor: Color {
+        switch trophy.format {
+        case .mini: return .gray
+        case .classic: return .orange
+        case .groupKO: return .blue
+        case .grand: return .yellow
+        }
+    }
+
+    private var placeholderTeam: Team {
+        Team(id: trophy.teamID, nameKey: trophy.teamName,
+             nameTR: trophy.teamName, nameEN: trophy.teamName,
+             short: trophy.teamShort, primary: trophy.primaryHex,
+             secondary: trophy.secondaryHex, badgeShape: trophy.badgeShape,
+             tier: 0, baseStrength: 75, stats: .balanced, pattern: .solid)
+    }
+}
+
+private struct TrophyStat: View {
+    let value: Int
+    let key: LocalizedStringKey
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            Text("\(value)").font(.headline.monospacedDigit())
+            Text(key).font(.caption2).foregroundStyle(Palette.textSecondary)
         }
     }
 }
 
 #Preview {
-    NavigationStack {
-        TrophyCabinetView()
-    }
-    .modelContainer(for: [Trophy.self], inMemory: true)
-    .preferredColorScheme(.dark)
+    NavigationStack { TrophyCabinetView() }
+        .modelContainer(for: [Trophy.self], inMemory: true)
+        .preferredColorScheme(.dark)
 }

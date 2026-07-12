@@ -139,6 +139,33 @@ final class WorldArenaSessionController {
         return WorldBracketResolver.championTeamID(in: bracket, results: state.results)
     }
 
+    @discardableResult
+    func awardPlayerTrophyIfNeeded() throws -> Bool {
+        guard state.phase == .finished,
+              championTeamID == state.playerTeamID,
+              let team = catalog.find(state.playerTeamID) else { return false }
+        let tournamentID = state.id
+        let descriptor = FetchDescriptor<Trophy>(
+            predicate: #Predicate { $0.sourceTournamentID == tournamentID })
+        guard try modelContext.fetch(descriptor).isEmpty else { return false }
+        let trophy = Trophy(
+            format: .grand,
+            teamID: team.id,
+            teamName: NSLocalizedString(team.nameKey, comment: ""),
+            teamShort: team.shortCode,
+            primaryHex: team.primary,
+            secondaryHex: team.secondary,
+            badgeShape: team.badgeShape,
+            isCustomTeam: false,
+            competitionID: TournamentDefinition.WorldArena.id,
+            sourceTournamentID: tournamentID,
+            nationalISOCode: team.isoCode,
+            nationalFlagAsset: team.flagAsset)
+        modelContext.insert(trophy)
+        try modelContext.save()
+        return true
+    }
+
     func standings(for group: GroupAssignment) -> [GroupStanding] {
         WorldGroupStageEngine.standings(
             for: group,
