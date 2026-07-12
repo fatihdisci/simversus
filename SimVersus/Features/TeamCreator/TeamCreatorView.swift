@@ -5,7 +5,7 @@
 //  fixed-budget stat spread (steppers, total locked to PhysicsConstants.statBudget).
 //  A live TeamBadgeView preview reflects every change. Saving inserts a
 //  `CustomTeam` into SwiftData and pops back to team select. The rewarded-ad
-//  slot unlock is Phase 2b — here a full slot just disables Save (CONSTITUTION).
+//  Rewarded ads unlock additional slots up to the Phase 2b maximum.
 
 import SwiftUI
 import SwiftData
@@ -28,6 +28,17 @@ enum TeamStylePreset: CaseIterable {
         case .powerful: "creator.preset.powerful"
         case .fast: "creator.preset.fast"
         case .large: "creator.preset.large"
+        }
+    }
+
+    /// (weight, speed, size) spread this preset applies — also used to detect
+    /// which preset matches the current steppers so its chip can highlight.
+    var distribution: (weight: Int, speed: Int, size: Int) {
+        switch self {
+        case .balanced: (3, 3, 3)
+        case .powerful: (5, 2, 2)
+        case .fast: (2, 5, 2)
+        case .large: (2, 2, 5)
         }
     }
 }
@@ -76,11 +87,26 @@ final class TeamCreatorModel: ObservableObject {
     }
 
     func apply(_ preset: TeamStylePreset) {
-        switch preset {
-        case .balanced: (weight, speed, size) = (3, 3, 3)
-        case .powerful: (weight, speed, size) = (5, 2, 2)
-        case .fast: (weight, speed, size) = (2, 5, 2)
-        case .large: (weight, speed, size) = (2, 2, 5)
+        (weight, speed, size) = preset.distribution
+    }
+
+    /// The preset whose spread matches the current steppers, if any.
+    var activePreset: TeamStylePreset? {
+        TeamStylePreset.allCases.first { $0.distribution == (weight, speed, size) }
+    }
+
+    /// Localization key for the save-bar hint, mentioning only what is still
+    /// missing — a static "enter a name and spend the points" reads stale the
+    /// moment one half is already done.
+    var saveHintKey: String? {
+        let nameMissing = nameFailure != nil
+        let pointsRemaining = remainingPoints != 0
+        switch (nameMissing, pointsRemaining) {
+        case (true, true): return "creator.save.hint"
+        case (true, false): return "creator.save.hint.name"
+        case (false, true): return "creator.save.hint.points"
+        // Only the colour rule can still block here; its error is inline.
+        case (false, false): return nil
         }
     }
 
@@ -101,6 +127,8 @@ struct TeamCreatorView: View {
     let onDone: () -> Void
 
     @StateObject private var model = TeamCreatorModel()
+    @ObservedObject private var adManager = AdManager.shared
+    @State private var showUnlockPrompt = false
 
     private var slotAvailable: Bool { CustomTeamStore.canCreate(existingCount: existingTeams.count) }
 
@@ -124,6 +152,12 @@ struct TeamCreatorView: View {
         .safeAreaInset(edge: .bottom) { saveBar }
         .navigationTitle("creator.title")
         .navigationBarTitleDisplayMode(.inline)
+        .task { await adManager.preloadRewarded() }
+        .alert("slots.unlock.title", isPresented: $showUnlockPrompt) {
+            Button("slots.unlock.cta", action: watchRewarded)
+                .disabled(!adManager.isRewardedReady)
+            Button("common.cancel", role: .cancel) {}
+        } message: { Text("slots.unlock.adfreeNote") }
     }
 
     // MARK: Preview
@@ -205,7 +239,7 @@ struct TeamCreatorView: View {
                 .overlay(RoundedRectangle(cornerRadius: Radius.button).stroke(Palette.borderSubtle))
             if let failure = model.nameFailure, !model.name.isEmpty {
                 Text(LocalizedStringKey(failure.messageKey))
-                    .font(.label)
+                    .font(.caption)
                     .foregroundStyle(Palette.danger)
             }
         }
@@ -221,7 +255,7 @@ struct TeamCreatorView: View {
             SwatchGrid(selected: $model.secondaryHex, disabledHex: model.primaryHex)
             if !model.colorsDistinct {
                 Text("creator.error.sameColor")
-                    .font(.label)
+                    .font(.caption)
                     .foregroundStyle(Palette.danger)
             }
         }
@@ -302,16 +336,18 @@ struct TeamCreatorView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: Spacing.s) {
                 ForEach(TeamStylePreset.allCases, id: \.self) { preset in
+                    let isActive = model.activePreset == preset
                     Button { model.apply(preset) } label: {
                         Text(preset.titleKey)
                             .font(.caption)
-                            .foregroundStyle(Palette.textPrimary)
+                            .foregroundStyle(isActive ? Palette.bgDeep : Palette.textPrimary)
                             .padding(.horizontal, Spacing.m)
                             .frame(minHeight: 40)
-                            .background(Palette.bgElevatedStrong, in: Capsule())
-                            .overlay(Capsule().stroke(Palette.borderStrong))
+                            .background(isActive ? Palette.accent : Palette.bgElevatedStrong, in: Capsule())
+                            .overlay(Capsule().stroke(isActive ? Palette.accent : Palette.borderStrong))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityAddTraits(isActive ? .isSelected : [])
                 }
             }
         }
@@ -332,12 +368,18 @@ struct TeamCreatorView: View {
             .disabled(!model.canSave || !slotAvailable)
 
             if !slotAvailable {
-                Label("creator.slot.locked", systemImage: "lock.fill")
-                    .font(.label)
-                    .foregroundStyle(Palette.textSecondary)
-            } else if !model.canSave {
-                Text("creator.save.hint")
-                    .font(.label)
+                if CustomTeamStore.unlockedSlots >= CustomTeamStore.maxSlots {
+                    Text("slots.max").font(.caption).foregroundStyle(Palette.textSecondary)
+                } else {
+                    Button("slots.unlock.cta") { showUnlockPrompt = true }
+                        .font(.sectionLabel)
+                        .foregroundStyle(adManager.isRewardedReady ? Palette.accent : Palette.textTertiary)
+                        .frame(minHeight: Layout.minTouchTarget)
+                    if !adManager.isRewardedReady { Text("ads.rewarded.unavailable").font(.caption).foregroundStyle(Palette.textSecondary) }
+                }
+            } else if !model.canSave, let hintKey = model.saveHintKey {
+                Text(LocalizedStringKey(hintKey))
+                    .font(.caption)
                     .foregroundStyle(Palette.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .center)
             }
@@ -353,6 +395,10 @@ struct TeamCreatorView: View {
         modelContext.insert(model.makeCustomTeam())
         try? modelContext.save()
         onDone()
+    }
+
+    private func watchRewarded() {
+        adManager.showRewarded { CustomTeamStore.unlockAdditionalSlot() }
     }
 
     private func sectionTitle(_ key: LocalizedStringKey) -> some View {
@@ -389,12 +435,19 @@ private struct SwatchGrid: View {
                                     .font(.system(size: 12, weight: .black))
                                     .foregroundStyle(.white)
                                     .shadow(color: .black, radius: 2)
+                            } else if isDisabled {
+                                // A dimmed swatch alone can pass for a dark
+                                // colour; the slash states "taken by the other
+                                // slot" explicitly.
+                                Image(systemName: "line.diagonal")
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundStyle(Palette.textSecondary)
                             }
                         }
                 }
                 .buttonStyle(.plain)
                 .disabled(isDisabled)
-                .opacity(isDisabled ? 0.25 : 1)
+                .opacity(isDisabled ? 0.35 : 1)
                 .accessibilityLabel(Text(verbatim: hex))
                 .accessibilityAddTraits(selected == hex ? .isSelected : [])
             }

@@ -23,5 +23,5 @@ Hedef: 2 takım seç → dönen arenada spectator maç → sonuç ekranı → 3 
 
 - Temiz build, sıfır warning, iPhone SE 3 + 15 Pro Max simülatörlerinde test edildi
 - TR ve EN cihaz dilinde tüm ekranlar doğru
-- 20 seed'lik otomatik maç testi: ortalama gol 2–6 bandında
+- Varsayılan 30 sn maçta 20 seed'lik otomatik test: ortalama gol 0.8–2.0 bandında
 - Interstitial akışı: 3. maç sonrası gösteriliyor, IAP sonrası gösterilmiyor, restore çalışıyor

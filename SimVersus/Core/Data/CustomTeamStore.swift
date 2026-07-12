@@ -15,11 +15,12 @@ enum CustomTeamStore {
 
     /// Slots available in the MVP before any rewarded unlock.
     static let baseSlots = 1
+    static let maxSlots = 5
 
     /// How many custom teams the user may keep. Never below `baseSlots`.
     static var unlockedSlots: Int {
         let stored = UserDefaults.standard.integer(forKey: Keys.unlockedSlots)
-        return max(baseSlots, stored)
+        return min(maxSlots, max(baseSlots, stored))
     }
 
     /// True when the user has room for another custom team.
@@ -27,8 +28,7 @@ enum CustomTeamStore {
         existingCount < unlockedSlots
     }
 
-    /// Phase 2b entry point — grants one more slot. Inert until wired to the ad.
     static func unlockAdditionalSlot() {
-        UserDefaults.standard.set(unlockedSlots + 1, forKey: Keys.unlockedSlots)
+        UserDefaults.standard.set(min(maxSlots, unlockedSlots + 1), forKey: Keys.unlockedSlots)
     }
 }

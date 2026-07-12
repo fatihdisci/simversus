@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		10DBF160402128B1A4AFB4CD /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3C0EC9C38BAF8C52C8E85F6E /* AppIntents.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		8CEF1F0A887FA7CA89AC7CA8 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3C0EC9C38BAF8C52C8E85F6E /* AppIntents.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		A1E000000000000000000001 /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = A1E000000000000000000003 /* GoogleMobileAds */; };
+		A1E000000000000000000002 /* GoogleUserMessagingPlatform in Frameworks */ = {isa = PBXBuildFile; productRef = A1E000000000000000000004 /* GoogleUserMessagingPlatform */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -67,6 +69,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				8CEF1F0A887FA7CA89AC7CA8 /* AppIntents.framework in Frameworks */,
+				A1E000000000000000000001 /* GoogleMobileAds in Frameworks */,
+				A1E000000000000000000002 /* GoogleUserMessagingPlatform in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -137,6 +141,8 @@
 			);
 			name = SimVersus;
 			packageProductDependencies = (
+				A1E000000000000000000003 /* GoogleMobileAds */,
+				A1E000000000000000000004 /* GoogleUserMessagingPlatform */,
 			);
 			productName = SimVersus;
 			productReference = 03EA351586CB6F4F2C45D911 /* SimVersus.app */;
@@ -188,6 +194,10 @@
 			);
 			mainGroup = CE25AB28725AD789E341F122;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A1E000000000000000000005 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */,
+				A1E000000000000000000006 /* XCRemoteSwiftPackageReference "swift-package-manager-google-user-messaging-platform" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = D1D4531D18733A914084A936 /* Products */;
 			projectDirPath = "";
@@ -474,6 +484,38 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A1E000000000000000000005 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/googleads/swift-package-manager-google-mobile-ads.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 13.0.0;
+			};
+		};
+		A1E000000000000000000006 /* XCRemoteSwiftPackageReference "swift-package-manager-google-user-messaging-platform" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/googleads/swift-package-manager-google-user-messaging-platform.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.1.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A1E000000000000000000003 /* GoogleMobileAds */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1E000000000000000000005 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */;
+			productName = GoogleMobileAds;
+		};
+		A1E000000000000000000004 /* GoogleUserMessagingPlatform */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1E000000000000000000006 /* XCRemoteSwiftPackageReference "swift-package-manager-google-user-messaging-platform" */;
+			productName = GoogleUserMessagingPlatform;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 57D2FD863B66B9A4AB91A0ED /* Project object */;
 }

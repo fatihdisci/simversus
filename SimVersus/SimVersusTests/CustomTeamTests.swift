@@ -20,7 +20,10 @@ final class CustomTeamTests: XCTestCase {
     }
 
     func testCleanNamesPass() {
-        for name in ["Ankara Yıldızları", "Mavi Şimşekler", "Kuzey Kartalları 1907"] {
+        let longestAllowedName = "Kuzey Yıldızlar 1907"
+        XCTAssertEqual(longestAllowedName.count, TeamNameValidator.maxLength)
+
+        for name in ["Ankara Yıldızları", "Mavi Şimşekler", longestAllowedName] {
             XCTAssertNil(TeamNameValidator.validate(name), "\(name) should be allowed")
         }
     }

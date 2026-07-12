@@ -1,15 +1,16 @@
 //  SettingsView.swift
 //  Features/Settings
 //
-//  Phase 2d: match speed, match duration and about. Presented as a sheet
-//  from Home. Purchases/restore stay out until StoreKit is wired up
-//  (Core/Monetization is still a stub — see AdGate.swift).
+//  Match duration, purchase management and about. Presented as a sheet from Home.
 
 import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var purchaseManager: PurchaseManager
     let onDone: () -> Void
+    @State private var showRemoveAds = false
+    @State private var restoreMessage: String?
 
     var body: some View {
         ZStack {
@@ -18,8 +19,8 @@ struct SettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Spacing.l) {
                     header
-                    speedSection
                     durationSection
+                    purchasesSection
                     aboutSection
                 }
                 .padding(.horizontal, Spacing.l)
@@ -28,6 +29,38 @@ struct SettingsView: View {
             }
             .scrollIndicators(.hidden)
         }
+        .sheet(isPresented: $showRemoveAds) { RemoveAdsSheet() }
+    }
+
+    private var purchasesSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.m) {
+            ArenaSectionHeader(title: "settings.purchases")
+            ArenaSurface {
+                VStack(alignment: .leading, spacing: Spacing.s) {
+                    // Status row states a fact ("Reklamlar etkin" / "Reklamsız
+                    // aktif"); the action button below carries the CTA — the two
+                    // must not repeat the same label.
+                    HStack {
+                        Text(purchaseManager.isAdFree ? "settings.purchases.active" : "settings.purchases.inactive")
+                            .font(.sectionLabel).foregroundStyle(Palette.textPrimary)
+                        Spacer()
+                        Image(systemName: purchaseManager.isAdFree ? "checkmark.seal.fill" : "megaphone.fill")
+                            .foregroundStyle(purchaseManager.isAdFree ? Palette.accent : Palette.textSecondary)
+                    }
+                    if !purchaseManager.isAdFree {
+                        Button("home.removeAds") { showRemoveAds = true }
+                            .buttonStyle(ArenaButtonStyle(kind: .secondary))
+                    }
+                    Button("iap.restore") { restorePurchases() }
+                        .font(.sectionLabel).foregroundStyle(Palette.textSecondary)
+                    if let restoreMessage { Text(LocalizedStringKey(restoreMessage)).font(.caption).foregroundStyle(Palette.textSecondary) }
+                }
+            }
+        }
+    }
+
+    private func restorePurchases() {
+        Task { restoreMessage = await purchaseManager.restore() ? "iap.restore.success" : "iap.restore.empty" }
     }
 
     private var header: some View {
@@ -40,31 +73,15 @@ struct SettingsView: View {
         }
     }
 
-    private var speedSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.m) {
-            ArenaSectionHeader(title: "settings.speed")
-            ArenaSurface {
-                HStack(spacing: Spacing.s) {
-                    ForEach(MatchSpeedOption.allCases) { option in
-                        SettingsOptionButton(title: option.titleKey,
-                                              isSelected: appState.matchSpeed == option) {
-                            appState.matchSpeed = option
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     private var durationSection: some View {
         VStack(alignment: .leading, spacing: Spacing.m) {
             ArenaSectionHeader(title: "settings.duration")
             ArenaSurface {
                 HStack(spacing: Spacing.s) {
                     ForEach(MatchDurationOption.allCases) { option in
-                        SettingsOptionButton(title: option.titleKey,
-                                              subtitle: Self.durationSubtitle(option),
-                                              isSelected: appState.matchDuration == option) {
+                        ArenaChoicePill(title: option.titleKey,
+                                        subtitle: Self.durationSubtitle(option),
+                                        isSelected: appState.matchDuration == option) {
                             appState.matchDuration = option
                         }
                     }
@@ -123,42 +140,9 @@ struct SettingsView: View {
     }
 }
 
-/// A pill-shaped choice button used for the speed/duration option rows —
-/// scoped to Settings since it needs a text label (not the fixed-size icon
-/// glyph `SelectableChip` in TeamCreatorView is built for).
-private struct SettingsOptionButton: View {
-    let title: String
-    var subtitle: String?
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 2) {
-                Text(LocalizedStringKey(title))
-                    .font(.sectionLabel)
-                    .foregroundStyle(isSelected ? Palette.bgDeep : Palette.textPrimary)
-                if let subtitle {
-                    Text(verbatim: subtitle)
-                        .font(.caption)
-                        .foregroundStyle(isSelected ? Palette.bgDeep.opacity(0.7) : Palette.textTertiary)
-                }
-            }
-            .frame(maxWidth: .infinity, minHeight: Layout.minTouchTarget)
-            .background(isSelected ? Palette.accent : Palette.bgElevatedStrong,
-                        in: RoundedRectangle(cornerRadius: Radius.button, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: Radius.button, style: .continuous)
-                    .stroke(isSelected ? Palette.accent : Palette.borderSubtle, lineWidth: 1)
-            )
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-    }
-}
-
 #Preview {
     SettingsView(onDone: {})
         .environmentObject(AppState())
+        .environmentObject(PurchaseManager.shared)
         .preferredColorScheme(.dark)
 }

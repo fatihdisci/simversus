@@ -4,6 +4,7 @@
 import SwiftUI
 
 struct ResultView: View {
+    @EnvironmentObject private var appState: AppState
     let result: MatchResult
     let config: MatchConfig
     let onRematch: () -> Void
@@ -32,7 +33,7 @@ struct ResultView: View {
             .scrollIndicators(.hidden)
         }
         .safeAreaInset(edge: .bottom) { actionBar }
-        .onDisappear { AdGate.onResultDismiss() }
+        .onDisappear { AdGate.onResultDismiss(matchesPlayed: appState.matchesPlayedCount) }
     }
 
     private var header: some View {
@@ -153,5 +154,6 @@ struct ResultView: View {
     let config = MatchConfig(homeTeam: teams[0], awayTeam: teams[3], seed: 42)
     let result = MatchSimulation(config: config).runToCompletion()
     return ResultView(result: result, config: config, onRematch: {}, onNewMatch: {}, onHome: {})
+        .environmentObject(AppState())
         .preferredColorScheme(.dark)
 }

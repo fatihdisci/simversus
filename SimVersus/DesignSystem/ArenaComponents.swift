@@ -182,6 +182,42 @@ struct ArenaIconButton: View {
     }
 }
 
+/// A pill-shaped choice button for small exclusive option groups (match
+/// length, history tabs). Selection combines fill, stroke and text colour —
+/// never hue alone — and reports `.isSelected` to assistive tech.
+struct ArenaChoicePill: View {
+    /// Localization key of the label.
+    let title: String
+    /// Optional pre-localized supporting line (e.g. "45 sn").
+    var subtitle: String?
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 2) {
+                Text(LocalizedStringKey(title))
+                    .font(.sectionLabel)
+                    .foregroundStyle(isSelected ? Palette.bgDeep : Palette.textPrimary)
+                if let subtitle {
+                    Text(verbatim: subtitle)
+                        .font(.caption)
+                        .foregroundStyle(isSelected ? Palette.bgDeep.opacity(0.7) : Palette.textTertiary)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: Layout.minTouchTarget)
+            .background(isSelected ? Palette.accent : Palette.bgElevatedStrong,
+                        in: RoundedRectangle(cornerRadius: Radius.button, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: Radius.button, style: .continuous)
+                    .stroke(isSelected ? Palette.accent : Palette.borderSubtle, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
 struct ArenaSectionHeader: View {
     let title: LocalizedStringKey
     var eyebrow: LocalizedStringKey?

@@ -33,7 +33,10 @@ enum PhysicsConstants {
     /// the immediately following fixed step due to floating-point tolerance.
     static let wallSeparationInset: CGFloat = 0.75
     /// Angular width of the single goal gap on the arena ring (rad).
-    static let gapWidth: CGFloat = 0.54
+    /// Calibrated together with the open-mouth goal physics: the whole visible
+    /// opening scores honestly (no invisible chord), so the arc itself is the
+    /// only scoring-rate lever and is sized to keep the 0.8–2.0 goal band.
+    static let gapWidth: CGFloat = 0.44
     /// Extra distance beyond arenaRadius a ball centre must pass to be "out".
     static let exitMargin: CGFloat = 24
 
@@ -132,9 +135,6 @@ enum PhysicsConstants {
     static let halfTimePause: TimeInterval = 1.8
     /// Duration of the non-blocking goal overlay + celebration.
     static let goalCelebrationPause: TimeInterval = 1.6
-    /// Simulation speed multiplier (1× in the MVP; 1/2/4× arrives in Phase 2d).
-    static let maxSimSpeed: CGFloat = 1
-
     // MARK: Simulation / rendering
 
     /// Fixed integration step (120 Hz) — the basis of determinism.

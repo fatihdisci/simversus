@@ -22,12 +22,11 @@ final class MatchViewModel: ObservableObject {
     private var flashDismiss: DispatchWorkItem?
     private var halfTimeDismiss: DispatchWorkItem?
 
-    init(config: MatchConfig, speedMultiplier: Double, onMatchEnded: @escaping (MatchResult) -> Void) {
+    init(config: MatchConfig, onMatchEnded: @escaping (MatchResult) -> Void) {
         homeTeam = config.homeTeam
         awayTeam = config.awayTeam
         matchEnded = onMatchEnded
         scene = MatchScene(config: config)
-        scene.speed = CGFloat(speedMultiplier)
         scene.onHUDUpdate = { [weak self] snapshot in self?.hud = snapshot }
         scene.onGoalScored = { [weak self] in self?.flashGoal() }
         scene.onHalfTime = { [weak self] in self?.announceHalfTime() }
@@ -47,7 +46,17 @@ final class MatchViewModel: ObservableObject {
     private func announceHalfTime() {
         halfTimeDismiss?.cancel()
         showHalfTime = true
-        let work = DispatchWorkItem { [weak self] in self?.showHalfTime = false }
+        // The engine has no built-in half-time break — freeze the scene for
+        // the announcement so the card never covers live play (a spectator
+        // would silently lose the opening minutes of the second half).
+        scene.isPaused = true
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.showHalfTime = false
+            // Hand control back to the user's own pause choice; they may have
+            // opened the pause panel while the card was up.
+            self.scene.isPaused = self.isPaused
+        }
         halfTimeDismiss = work
         DispatchQueue.main.asyncAfter(deadline: .now() + PhysicsConstants.halfTimePause, execute: work)
     }
@@ -68,11 +77,10 @@ struct MatchView: View {
     @State private var pauseStateBeforeExitPrompt: Bool?
     private let onExit: () -> Void
 
-    init(config: MatchConfig, speedMultiplier: Double = 1, onExit: @escaping () -> Void,
+    init(config: MatchConfig, onExit: @escaping () -> Void,
          onMatchEnded: @escaping (MatchResult) -> Void) {
         self.onExit = onExit
         _model = StateObject(wrappedValue: MatchViewModel(config: config,
-                                                           speedMultiplier: speedMultiplier,
                                                            onMatchEnded: onMatchEnded))
     }
 
@@ -154,18 +162,40 @@ struct MatchView: View {
     }
 
     private var halfTimeAnnouncement: some View {
-        VStack(spacing: Spacing.xs) {
-            Text("match.halftime.title")
-                .font(.titleXL)
-                .foregroundStyle(.white)
-            Text("match.halftime.subtitle")
-                .font(.label)
-                .foregroundStyle(Palette.accent)
+        ZStack {
+            Color.black.opacity(0.48).ignoresSafeArea()
+            VStack(spacing: Spacing.m) {
+                Text("match.halftime.title")
+                    .font(.caption)
+                    .foregroundStyle(Palette.accent)
+                    .textCase(.uppercase)
+                HStack(spacing: Spacing.l) {
+                    halftimeTeam(model.homeTeam, score: model.hud.homeScore)
+                    Text("–").font(.scoreSeparator).foregroundStyle(Palette.textSecondary)
+                    halftimeTeam(model.awayTeam, score: model.hud.awayScore)
+                }
+                HStack(spacing: Spacing.s) {
+                    Rectangle().fill(Palette.textTertiary).frame(height: 2)
+                    Image(systemName: "arrow.right").foregroundStyle(Palette.accent)
+                    Rectangle().fill(Palette.accent).frame(height: 2)
+                }
+                Text("match.halftime.subtitle")
+                    .font(.sectionLabel)
+                    .foregroundStyle(Palette.textPrimary)
+            }
+            .padding(Spacing.l)
+            .frame(maxWidth: 330)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: Radius.card).stroke(Palette.borderStrong))
         }
-        .padding(.horizontal, Spacing.xl)
-        .padding(.vertical, Spacing.m)
-        .background(Palette.bgElevated.opacity(0.9), in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: Radius.card).stroke(Palette.accent.opacity(0.45)))
+    }
+
+    private func halftimeTeam(_ team: Team, score: Int) -> some View {
+        VStack(spacing: Spacing.xs) {
+            TeamOrbView(team: team, size: 42)
+            Text(team.short).font(.label).foregroundStyle(Palette.textSecondary)
+            Text("\(score)").font(.scoreboard).foregroundStyle(Palette.textPrimary)
+        }.frame(maxWidth: .infinity)
     }
 
     private func presentExitConfirmation() {

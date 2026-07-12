@@ -1,6 +1,6 @@
-# Reklam Kurulum Rehberi — Arena30
+# Reklam Kurulum Rehberi — Goal Arena
 
-Bu rehber, Arena30 uygulamasındaki reklam altyapısının **Google AdMob** tarafında nasıl aktif edileceğini adım adım anlatır.
+Bu rehber, Goal Arena uygulamasındaki reklam altyapısının **Google AdMob** tarafında nasıl aktif edileceğini adım adım anlatır.
 
 > **Not:** Kod tarafındaki tüm reklam mantığı (`AdManager`, `ConsentManager`, `PurchaseManager`, `AdGate`) hazır durumdadır ve şu an **Google'ın test ID'leri** ile çalışmaktadır. Bu rehberdeki adımları tamamladıktan sonra sadece birkaç satır ID değişikliği yapmanız yeterli olacak.
 
@@ -31,7 +31,7 @@ Bu rehber, Arena30 uygulamasındaki reklam altyapısının **Google AdMob** tara
 1. AdMob panelinde **Apps** → **Add App** butonuna tıkla
 2. Platform olarak **iOS** seç
 3. **"App not published on the App Store"** seçeneğini işaretle
-4. Uygulama adı: **Arena30**
+4. Uygulama adı: **Goal Arena**
 5. Bundle ID: **`com.simversus.app`** (`project.yml:55`)
 6. Kaydı tamamla
 

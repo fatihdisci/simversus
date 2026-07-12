@@ -1,0 +1,40 @@
+{
+  "identifier" : "B809B3A8-4EA2-4577-BFAE-D92F50E9D092",
+  "nonRenewingSubscriptionProducts" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "1.99",
+      "familyShareable" : false,
+      "internalID" : "885B02E8-6EA1-47D4-AACC-EA2135EE83F1",
+      "localizations" : [
+        {
+          "description" : "Make every future match ad-free.",
+          "displayName" : "Remove Ads",
+          "locale" : "en_US"
+        },
+        {
+          "description" : "Tüm gelecek maçları reklamsız oyna.",
+          "displayName" : "Reklamları Kaldır",
+          "locale" : "tr_TR"
+        }
+      ],
+      "productID" : "com.simversus.removeads",
+      "referenceName" : "Remove Ads",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA"
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

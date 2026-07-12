@@ -50,17 +50,13 @@ struct TeamSelectView: View {
                     .font(.screenTitle)
                     .foregroundStyle(Palette.textPrimary)
                 Spacer()
-                Button(action: { if slotAvailable { onCreateTeam() } }) {
+                Button(action: onCreateTeam) {
                     Label("teamselect.create", systemImage: slotAvailable ? "plus" : "lock.fill")
                         .font(.sectionLabel)
                         .foregroundStyle(slotAvailable ? Palette.accent : Palette.textTertiary)
-                        .padding(.horizontal, Spacing.s)
                         .frame(minHeight: Layout.minTouchTarget)
-                        .background(Palette.bgElevated.opacity(0.8), in: Capsule())
-                        .overlay(Capsule().stroke(Palette.borderSubtle))
                 }
                 .buttonStyle(.plain)
-                .disabled(!slotAvailable)
             }
             Text("teamselect.subtitle")
                 .font(.body)
@@ -95,12 +91,20 @@ struct TeamSelectView: View {
                     }
                 }
 
-                Text(activeSide == .home ? "teamselect.focus.home" : "teamselect.focus.away")
+                Text(focusHint)
                     .font(.caption)
                     .foregroundStyle(Palette.accent)
                     .frame(maxWidth: .infinity)
             }
         }
+    }
+
+    /// The instruction under the VS card follows the actual matchup state —
+    /// once both slots are filled it must stop asking the user to pick a team
+    /// and hand over to the kick-off CTA instead.
+    private var focusHint: LocalizedStringKey {
+        if matchup.isReady { return "teamselect.focus.ready" }
+        return activeSide == .home ? "teamselect.focus.home" : "teamselect.focus.away"
     }
 
     private var teamPool: some View {

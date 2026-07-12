@@ -4,10 +4,10 @@ Hedef: kullanıcıyı geri getiren özellikler + rewarded ad kanalını açmak.
 
 | Parça | İçerik | Bağımlılık |
 |---|---|---|
-| 2a | Özel takım oluşturucu (isim + renkler + şekil) | Faz 1 |
-| 2b | Rewarded ads: ekstra özel takım slotu | 2a |
-| 2c | Maç geçmişi + basit istatistik (SwiftData) | Faz 1 |
-| 2d | Ayarlar: maç hızı/süresi, dil bilgisi, restore | Faz 1 |
+| 2a | Özel takım oluşturucu (isim + renkler + şekil) | Faz 1 | ✅ Tamamlandı |
+| 2b | Rewarded ads: ekstra özel takım slotu | 2a | ✅ Tamamlandı |
+| 2c | Maç geçmişi + basit istatistik (SwiftData) | Faz 1 | ✅ Tamamlandı |
+| 2d | Ayarlar: maç süresi, satın alma yönetimi, hakkında | Faz 1 | ✅ Tamamlandı |
 
 2c ve 2d, 2a/2b'den bağımsızdır; paralel ayrı oturumlarda koşturulabilir.
 

@@ -87,7 +87,7 @@ struct TeamPoolCard: View {
                             .frame(width: pip, height: pip)
                             .background(Palette.accent, in: Circle())
                             .overlay(Circle().stroke(Palette.bgElevated, lineWidth: 2))
-                            .offset(x: pip * 0.42, y: -pip * 0.24)
+                            .offset(x: 2, y: 2)
                     }
                 }
                 Text(LocalizedStringKey(team.nameKey))

@@ -85,6 +85,10 @@ final class MatchScene: SKScene {
     private var lastSnapshot = MatchHUDSnapshot()
     private var lastTotalGoals = 0
     private var didPublishHalfTime = false
+    /// The simulation does not consume time until SpriteKit has uploaded the
+    /// match and particle textures. This keeps the first visible movement at 60 fps.
+    private var renderResourcesReady = false
+    private var didPrepareView = false
 
     // Camera shake.
     private var shakeIntensity: CGFloat = 0
@@ -115,18 +119,41 @@ final class MatchScene: SKScene {
         scaleMode = .resizeFill
         anchorPoint = CGPoint(x: 0.5, y: 0.5)
         backgroundColor = UIColor(Palette.bgArena)
+        // Build CPU-side geometry before the scene is attached to an SKView;
+        // doing this in didMove competes with the first visible frames.
+        buildNodes()
+        layoutWorld()
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     override func didMove(to view: SKView) {
-        guard worldNode.parent == nil else { return }
-        view.preferredFramesPerSecond = 60
+        guard !didPrepareView else { return }
+        didPrepareView = true
+        // Ask for the display's native cadence — SpriteKit clamps to the panel
+        // maximum, so this renders 120 fps on ProMotion and 60 elsewhere. The
+        // fixed-step accumulator keeps the simulation identical either way;
+        // capping at 60 on a 120 Hz panel made fast balls visibly judder.
+        view.preferredFramesPerSecond = 120
+        view.isAsynchronous = true
         view.shouldCullNonVisibleNodes = true
         view.ignoresSiblingOrder = true
-        buildNodes()
         layoutWorld()
+        prewarmParticlePool()
+
+        // Force one off-screen render so SKShapeNode tessellation and pipeline
+        // setup finish before the deterministic clock starts advancing.
+        _ = view.texture(from: worldNode)
+
+        let textures = [homeBallNode.texture, awayBallNode.texture,
+                        Self.circleParticleTexture, Self.squareParticleTexture].compactMap { $0 }
+        SKTexture.preload(textures) { [weak self] in
+            DispatchQueue.main.async {
+                self?.lastUpdateTime = 0
+                self?.renderResourcesReady = true
+            }
+        }
     }
 
     override func didChangeSize(_ oldSize: CGSize) {
@@ -263,6 +290,16 @@ final class MatchScene: SKScene {
         node.removeFromParent()
         if particlePool.count < particlePoolLimit {
             particlePool.append(node)
+        }
+    }
+
+    /// Fills the sprite pool before kickoff so the first goal's confetti burst
+    /// (60 nodes in a single frame) never allocates mid-match — allocation
+    /// spikes at the celebration were a visible hitch on older devices.
+    private func prewarmParticlePool() {
+        let warmCount = 128
+        while particlePool.count < warmCount {
+            particlePool.append(SKSpriteNode(texture: Self.circleParticleTexture))
         }
     }
 
@@ -478,21 +515,22 @@ final class MatchScene: SKScene {
     // MARK: Step & render
 
     override func update(_ currentTime: TimeInterval) {
+        guard renderResourcesReady else {
+            // Keep resetting the baseline during warm-up; otherwise the first
+            // ready frame would include the upload time as simulation delta.
+            lastUpdateTime = currentTime
+            return
+        }
         if lastUpdateTime == 0 { lastUpdateTime = currentTime }
         // Cap delta hard: after a hitch/backgrounding the sim clock slips slightly
         // instead of bursting many catch-up steps in one frame (chained stutter).
-        // `speed` (SKNode/SKScene, default 1) carries the Settings match-speed
-        // choice and applies uniformly below to physics steps, particles and
-        // camera shake — it only changes how fast real time is consumed, never
-        // the deterministic fixed-step sequence itself (CONSTITUTION §11 holds:
-        // same seed still produces the same steps in the same order).
-        let delta = min(currentTime - lastUpdateTime, 1.0 / 20.0) * TimeInterval(speed)
+        // The scene always advances in real time. Match duration is controlled
+        // exclusively by `MatchConfig.duration` in the simulation.
+        let delta = min(currentTime - lastUpdateTime, 1.0 / 20.0)
         lastUpdateTime = currentTime
 
-        accumulator += delta * TimeInterval(PhysicsConstants.maxSimSpeed)
-        // Scale the per-frame step budget with speed so 2×/4× can actually keep
-        // the accumulator from perpetually running behind at a steady 60 fps.
-        let maxStepsThisFrame = 4 * max(1, Int(speed.rounded(.up)))
+        accumulator += delta
+        let maxStepsThisFrame = 4
         var stepsThisFrame = 0
         while accumulator >= PhysicsConstants.fixedTimeStep, stepsThisFrame < maxStepsThisFrame, !simulation.isFinished {
             simulation.step()
@@ -561,6 +599,12 @@ final class MatchScene: SKScene {
     /// removes collected ones, adds newly spawned ones.
     private func syncPowerUps() {
         let current = simulation.activePowerUps
+        // Cheap steady-state path: same count and every id present means
+        // nothing spawned or was collected — skip the per-frame Set/Array work.
+        if current.count == powerUpNodes.count,
+           current.allSatisfy({ powerUpNodes[$0.id] != nil }) {
+            return
+        }
         let liveIDs = Set(current.map(\.id))
         // Snapshot keys first — never mutate the dictionary while iterating it.
         for id in Array(powerUpNodes.keys) where !liveIDs.contains(id) {

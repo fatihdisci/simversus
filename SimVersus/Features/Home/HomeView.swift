@@ -5,9 +5,13 @@ import SwiftUI
 
 struct HomeView: View {
     let onPlay: () -> Void
+    let onHistory: () -> Void
+    let onTournament: () -> Void
 
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var purchaseManager: PurchaseManager
     @State private var showSettings = false
+    @State private var showRemoveAds = false
 
     var body: some View {
         ZStack {
@@ -26,6 +30,9 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showSettings) {
             SettingsView(onDone: { showSettings = false })
+        }
+        .sheet(isPresented: $showRemoveAds) {
+            RemoveAdsSheet()
         }
     }
 
@@ -68,26 +75,39 @@ struct HomeView: View {
     private var actionPanel: some View {
         ArenaSurface(padding: Spacing.l) {
             VStack(spacing: Spacing.l) {
-                HStack(spacing: Spacing.s) {
-                    Label("home.meta.spectator", systemImage: "eye.fill")
-                    Spacer()
-                    Label("home.meta.physics", systemImage: "circle.hexagongrid.fill")
-                    Spacer()
+                HStack {
                     Label(durationMetaText, systemImage: "timer")
+                    Spacer()
+                    Text("home.meta.spectator")
                 }
-                .font(.caption)
-                .foregroundStyle(Palette.textSecondary)
+                .font(.caption).foregroundStyle(Palette.textSecondary)
 
                 VStack(spacing: Spacing.s) {
                     ArenaCTAButton(title: "home.play", systemImage: "arrow.right", action: onPlay)
 
-                    Button(action: {}) {
-                        Text("home.removeAds")
-                            .font(.caption)
-                            .foregroundStyle(Palette.textTertiary)
+                    Button(action: onTournament) {
+                        Label("Turnuva", systemImage: "trophy.fill")
+                            .font(.sectionLabel)
+                            .foregroundStyle(Palette.accent)
                             .frame(maxWidth: .infinity, minHeight: Layout.minTouchTarget)
+                    }.buttonStyle(.plain)
+
+                    Button(action: onHistory) {
+                        Label("home.history", systemImage: "clock.arrow.circlepath")
+                            .font(.sectionLabel)
+                            .foregroundStyle(Palette.textSecondary)
+                            .frame(maxWidth: .infinity, minHeight: Layout.minTouchTarget)
+                    }.buttonStyle(.plain)
+
+                    if !purchaseManager.isAdFree {
+                        Button(action: { showRemoveAds = true }) {
+                            Text("home.removeAds")
+                                .font(.caption)
+                                .foregroundStyle(Palette.textTertiary)
+                                .frame(maxWidth: .infinity, minHeight: Layout.minTouchTarget)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
         }
@@ -100,7 +120,8 @@ struct HomeView: View {
 }
 
 #Preview {
-    HomeView(onPlay: {})
+    HomeView(onPlay: {}, onHistory: {}, onTournament: {})
         .environmentObject(AppState())
+        .environmentObject(PurchaseManager.shared)
         .preferredColorScheme(.dark)
 }

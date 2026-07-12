@@ -124,14 +124,14 @@ ChallengeCode {
 **Akış:**
 1. **Oluşturma:** Turnuva kazanıldığında veya takım ustalık seviyesi atladığında "Meydan Okuma Kodu Oluştur" butonu çıkar.
 2. **Paylaşma:** Standart iOS share sheet. Paylaşım metni: *"Şampiyonumu yenebilir misin? Meydan okuma: SV-8K4P2X"*
-3. **Kabul etme:** Ana ekranda "Meydan Okumaya Katıl" butonu veya URL scheme (`arena30://challenge/SV-8K4P2X`) ile kod girilir.
+3. **Kabul etme:** Ana ekranda "Meydan Okumaya Katıl" butonu veya URL scheme (`goalarena://challenge/SV-8K4P2X`) ile kod girilir.
 4. **Oynama:** Alan kişi kendi takımını seçer (kendi oluşturduğu veya preset), gönderenin takımına karşı aynı seed + config ile maç oynanır.
 5. **Sonuç:** Alan kişi kazanırsa "Meydan Okuma Tamamlandı!" rozeti; kaybederse "Tekrar Dene" → farklı bir takımla tekrar dene.
 
 **Teknik:**
 - `ChallengeCode.encode(ChallengeCode) -> String` ve `ChallengeCode.decode(String) -> ChallengeCode?`
 - Deterministik motor zaten var; aynı seed + aynı takımlar = aynı maç
-- URL scheme `arena30://` Info.plist'te tanımlanır
+- URL scheme `goalarena://` Info.plist'te tanımlanır
 - Deep link `AppState` veya `ScenePhase` üzerinden yakalanır
 
 ### 4e — Paylaşım kartları
@@ -153,7 +153,7 @@ Meydan okuma kodundan sonra gelen ikincil paylaşım kanalı. Statik görseller,
 - [ ] Temiz kurulumdan "İlk Maç" başarımına, 3 doğru tahmin serisine, ilk turnuva zaferine kadar zincirleme akış çalışıyor
 - [ ] En az 20 başarım tanımı var; en az 15'i davranış odaklı (pasif sayaç değil)
 - [ ] Meydan okuma kodu oluşturma → share sheet → kod girme → maç oynama akışı uçtan uca çalışıyor
-- [ ] URL scheme (`arena30://challenge/...`) ile uygulama açılıp meydan okuma başlatılabiliyor
+- [ ] URL scheme (`goalarena://challenge/...`) ile uygulama açılıp meydan okuma başlatılabiliyor
 - [ ] Paylaşım kartı içinde meydan okuma kodu görünüyor
 - [ ] Başarım durumu app silinmedikçe kalıcı; migration mevcut kayıtları bozmuyor
 - [ ] TR/EN tüm başarım metinleri ve meydan okuma arayüzü doğru

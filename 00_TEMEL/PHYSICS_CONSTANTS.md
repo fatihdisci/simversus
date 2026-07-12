@@ -16,7 +16,7 @@
 | `minimumWallSeparationSpeed` | 105 pt/s | Teğet vuruşlarda görünür içeri sekmeyi garantileyen minimum ayrılma hızı |
 | `arenaWallTangentRetention` | 0.72 | Arena duvarının sürtünmesi; teğet hızın korunacak oranı |
 | `wallSeparationInset` | 0.75 pt | Ardışık frame'de tekrar teması önleyen küçük içeri konum payı |
-| `gapWidth` | 0.54 rad | Biraz daha kompakt kale ağzı; top yarıçapı ve direk teması fiziksel hesaplanır |
+| `gapWidth` | 0.44 rad | Kale ağzı açısal genişliği. Ağız direkler arasında tamamen açıktır (görünmez kiriş yok); direkler + ağ rayları tek kapsül çarpışmasıyla çözülür. Açık-ağız fiziğiyle birlikte 0.8–2.0 gol bandına göre kalibre edildi |
 | `exitMargin` | 24 pt | Gol sayılmadan önce topun çemberin dışına görünür biçimde çıkacağı mesafe |
 
 ## Toplar (dairesel, takım renginde, badge sembollü)

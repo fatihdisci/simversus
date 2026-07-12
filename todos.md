@@ -1,7 +1,9 @@
-# Yol Haritası — Arena30 (SimVersus)
+# Yol Haritası — Goal Arena (SimVersus)
 
 > Son güncelleme: 12 Temmuz 2026. Bu belge kod tabanındaki gerçek yapıya dayanır; hiçbir şey uydurulmamıştır.
 > Her maddenin altında **ne**, **nerede**, **nasıl** soruları cevaplanır.
+>
+> **İlerleme:** Faz 1 ✅ | Faz 2 ✅ | Tasarım ✅ | Faz 3a ✅ | Faz 3b ✅ | Faz 3d ✅ | Faz 3c ⬜
 
 ---
 
@@ -555,7 +557,7 @@ struct ChallengeCode {
 - Base32 karakter seti: `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` (benzer karakterler çıkarılmış)
 - 8 karakter = 40 bit → seed ve config için yeterli
 - `encode()`: JSON → Data → Base32 → "SV-" + ilk 8 char + checksum (son 1 char)
-- URL scheme: `arena30://challenge/SV-8K4P2X` → `Info.plist`'te `CFBundleURLSchemes` tanımlanır
+- URL scheme: `goalarena://challenge/SV-8K4P2X` → `Info.plist`'te `CFBundleURLSchemes` tanımlanır
 - Deep link: `SimVersusApp.onOpenURL` veya `ScenePhase.onChange` ile yakalanır
 
 ### 4e — Paylaşım kartları

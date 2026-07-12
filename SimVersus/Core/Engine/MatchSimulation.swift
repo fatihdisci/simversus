@@ -372,22 +372,18 @@ final class MatchSimulation {
             setExiting(false, for: side)
         }
 
-        // The two arc endpoints are physical round posts. Resolving these as
-        // point-vs-disc contacts gives glancing corner hits their real normal,
-        // instead of a radial wall bounce or a false goal.
-        if resolveGoalPostCollision(ball: &ball) { return }
+        // Each side of the goal mouth is one capsule collider: the round post at
+        // the mouth chord plus the net rail running outward from it. A single
+        // nearest-point-on-segment contact gives posts, rails and the seam
+        // between them one continuous normal — no false goals, no snapping.
+        if resolveGoalFrameCollision(ball: &ball) { return }
 
         guard dist > wallBoundary, dist > 0.0001 else { return }
 
-        let angle = atan2(ball.position.y, ball.position.x)
         let outwardVelocity = ball.velocity.dot(ball.position.normalized)
         let isExiting = side == .home ? homeIsExiting : awayIsExiting
 
         if isExiting {
-            // Once inside, the upper/lower goal rails remain solid. This closes
-            // the old loophole where an exiting ball could clip through a corner.
-            if resolveGoalSideRailCollision(ball: &ball) { return }
-
             // A scoring ball may never roam freely outside the arena. It either
             // crosses the line while still inside the goal corridor, or loses
             // exit permission immediately and is contained by the circular wall.
@@ -407,10 +403,13 @@ final class MatchSimulation {
             return
         }
 
-        // Crossing the mouth only starts an exit. The score is awarded after the
-        // ball visibly travels through the entire goal and beyond the arena ring.
-        if isInsideGoalMouth(ball: ball, angle: angle, distance: dist), outwardVelocity > 0 {
-            setExiting(true, for: side)
+        if isInsideGoalMouth(ball) {
+            // The mouth is genuinely open — there is no wall between the posts,
+            // so a ball here is never bounced radially. Outward motion starts an
+            // exit; the score is awarded only after the ball visibly travels
+            // through the whole goal and past the line. Inward motion simply
+            // re-enters play.
+            if outwardVelocity > 0 { setExiting(true, for: side) }
             return
         }
 
@@ -444,64 +443,58 @@ final class MatchSimulation {
         }
     }
 
-    private func resolveGoalPostCollision(ball: inout Disc) -> Bool {
-        let half = PhysicsConstants.gapWidth / 2
-        let localX = cos(half) * PhysicsConstants.arenaRadius
-        let localY = sin(half) * PhysicsConstants.arenaRadius
+    /// Resolves contact between a ball and the goal frame. Each side of the
+    /// mouth is a capsule: the segment from the post (on the mouth chord) out to
+    /// the back of the net, with the ball's radius as contact distance. The
+    /// segment's arena-side endpoint IS the round post, so a glancing corner
+    /// hit, a slide along the net rail and the transition between the two all
+    /// share one continuous contact normal. Runs in arena-local space (the
+    /// frame rotates with the arena).
+    private func resolveGoalFrameCollision(ball: inout Disc) -> Bool {
         let c = cos(arenaRotation), s = sin(arenaRotation)
-        let posts = [CGPoint(x: localX * c - localY * s, y: localX * s + localY * c),
-                     CGPoint(x: localX * c + localY * s, y: localX * s - localY * c)]
-
-        for post in posts {
-            let delta = ball.position - post
-            let distance = delta.length
-            guard distance < ball.effectiveRadius else { continue }
-            let normal = distance > 0.0001 ? delta * (1 / distance) : post.normalized * -1
-            ball.position = post + normal * ball.effectiveRadius
-            let speedIntoPost = ball.velocity.dot(normal)
-            if speedIntoPost < 0 {
-                ball.velocity = ball.velocity - normal * ((1 + PhysicsConstants.ballToWallRestitution) * speedIntoPost)
-            }
-            enforceMinimumSeparation(on: &ball.velocity, awayFrom: normal)
-            ball.position = ball.position + normal * PhysicsConstants.wallSeparationInset
-            pendingCollisionEvents.append(CollisionEvent(position: post,
-                                                          intensity: min(1, abs(speedIntoPost) / 250),
-                                                          isBallBall: false))
-            return true
-        }
-        return false
-    }
-
-    private func resolveGoalSideRailCollision(ball: inout Disc) -> Bool {
-        let c = cos(arenaRotation), s = sin(arenaRotation)
-        var localPosition = CGPoint(x: ball.position.x * c + ball.position.y * s,
-                                    y: -ball.position.x * s + ball.position.y * c)
-        var localVelocity = CGPoint(x: ball.velocity.x * c + ball.velocity.y * s,
-                                    y: -ball.velocity.x * s + ball.velocity.y * c)
+        var local = CGPoint(x: ball.position.x * c + ball.position.y * s,
+                            y: -ball.position.x * s + ball.position.y * c)
+        // Quick reject: far from the goal's bounding region entirely.
         let half = PhysicsConstants.gapWidth / 2
         let frontX = cos(half) * PhysicsConstants.arenaRadius
         let backX = frontX + PhysicsConstants.exitMargin + 8
-        let railLimit = sin(half) * PhysicsConstants.arenaRadius - ball.effectiveRadius
-        guard localPosition.x >= frontX,
-              localPosition.x <= backX,
-              abs(localPosition.y) > railLimit else { return false }
+        let railY = sin(half) * PhysicsConstants.arenaRadius
+        guard local.x > frontX - ball.effectiveRadius - 1 else { return false }
 
-        let side: CGFloat = localPosition.y >= 0 ? 1 : -1
-        localPosition.y = side * railLimit
-        if localVelocity.y * side > 0 {
-            localVelocity.y = -localVelocity.y * PhysicsConstants.ballToWallRestitution
+        var localVelocity = CGPoint(x: ball.velocity.x * c + ball.velocity.y * s,
+                                    y: -ball.velocity.x * s + ball.velocity.y * c)
+        var resolved = false
+
+        for railSide in [CGFloat(1), CGFloat(-1)] {
+            let railLineY = railY * railSide
+            // Nearest point on this rail segment to the ball centre.
+            let nearest = CGPoint(x: min(max(local.x, frontX), backX), y: railLineY)
+            let delta = local - nearest
+            let distance = delta.length
+            guard distance < ball.effectiveRadius else { continue }
+
+            let normal = distance > 0.0001 ? delta * (1 / distance) : CGPoint(x: 0, y: -railSide)
+            local = nearest + normal * (ball.effectiveRadius + PhysicsConstants.wallSeparationInset)
+            let speedIntoFrame = localVelocity.dot(normal)
+            if speedIntoFrame < 0 {
+                localVelocity = localVelocity - normal * ((1 + PhysicsConstants.ballToWallRestitution) * speedIntoFrame)
+            }
+            enforceMinimumSeparation(on: &localVelocity, awayFrom: normal)
+            pendingCollisionEvents.append(CollisionEvent(
+                position: CGPoint(x: nearest.x * c - nearest.y * s,
+                                  y: nearest.x * s + nearest.y * c),
+                intensity: min(1, abs(speedIntoFrame) / 250),
+                isBallBall: false))
+            resolved = true
         }
-        let separationDirection = -side
-        if localVelocity.y * separationDirection < PhysicsConstants.minimumWallSeparationSpeed {
-            localVelocity.y = separationDirection * PhysicsConstants.minimumWallSeparationSpeed
+
+        if resolved {
+            ball.position = CGPoint(x: local.x * c - local.y * s,
+                                    y: local.x * s + local.y * c)
+            ball.velocity = CGPoint(x: localVelocity.x * c - localVelocity.y * s,
+                                    y: localVelocity.x * s + localVelocity.y * c)
         }
-        localPosition.y -= side * PhysicsConstants.wallSeparationInset
-        ball.position = CGPoint(x: localPosition.x * c - localPosition.y * s,
-                                y: localPosition.x * s + localPosition.y * c)
-        ball.velocity = CGPoint(x: localVelocity.x * c - localVelocity.y * s,
-                                y: localVelocity.x * s + localVelocity.y * c)
-        pendingCollisionEvents.append(CollisionEvent(position: ball.position, intensity: 0.65, isBallBall: false))
-        return true
+        return resolved
     }
 
     private func enforceMinimumSeparation(on velocity: inout CGPoint, awayFrom normal: CGPoint) {
@@ -523,6 +516,10 @@ final class MatchSimulation {
         return localX >= PhysicsConstants.arenaRadius + PhysicsConstants.exitMargin
     }
 
+    /// The bookkeeping box an exiting ball must stay inside: from just before
+    /// the mouth chord to the back of the net, no wider than the mouth itself.
+    /// The posts and rails do the physical narrowing — this box only decides
+    /// when a deflected ball has left the goal system and returns to the wall.
     private func isInsideGoalCorridor(_ ball: Disc) -> Bool {
         let c = cos(arenaRotation), s = sin(arenaRotation)
         let localPosition = CGPoint(x: ball.position.x * c + ball.position.y * s,
@@ -530,23 +527,21 @@ final class MatchSimulation {
         let half = PhysicsConstants.gapWidth / 2
         let frontX = cos(half) * PhysicsConstants.arenaRadius
         let backX = frontX + PhysicsConstants.exitMargin + 8
-        let railLimit = sin(half) * PhysicsConstants.arenaRadius - ball.effectiveRadius
+        let mouthHalfHeight = sin(half) * PhysicsConstants.arenaRadius
         return localPosition.x >= frontX - ball.effectiveRadius
             && localPosition.x <= backX
-            && abs(localPosition.y) <= railLimit + 1
+            && abs(localPosition.y) <= mouthHalfHeight
     }
 
-    /// The gap is visually wider than a ball. A centre point is only admitted
-    /// when its entire circle clears both goal posts; otherwise it bounces.
-    /// This is the physical guard that prevents corner clipping into a goal.
-    private func isInsideGoalMouth(ball: Disc, angle: CGFloat, distance: CGFloat) -> Bool {
-        let half = PhysicsConstants.gapWidth / 2
-        let mouthHalfHeight = PhysicsConstants.arenaRadius * sin(half)
-        let centreClearance = mouthHalfHeight - ball.effectiveRadius
-        guard centreClearance > 0 else { return false }
-        let localAngle = angularDistance(angle, arenaRotation)
-        let lateralOffset = distance * sin(localAngle)
-        return lateralOffset <= centreClearance
+    /// The mouth is the open arc between the two posts: a ball centre inside
+    /// this angular span faces no wall at all. Deflections there come only from
+    /// the round posts / rails (the capsule collider), so a shot that visibly
+    /// fits the opening is never bounced back by an invisible chord — and the
+    /// span being under 90° means the far side of the arena can never mirror
+    /// into a phantom gap.
+    private func isInsideGoalMouth(_ ball: Disc) -> Bool {
+        let angle = atan2(ball.position.y, ball.position.x)
+        return angularDistance(angle, arenaRotation) <= PhysicsConstants.gapWidth / 2
     }
 
     private func angularDistance(_ a: CGFloat, _ b: CGFloat) -> CGFloat {
@@ -653,11 +648,26 @@ final class MatchSimulation {
     private func spawnPowerUp() {
         let kind = PowerUpKind.allCases.randomElement(using: &rng) ?? .grow
         let maxR = PhysicsConstants.arenaRadius * PhysicsConstants.powerUpSpawnInnerFraction
-        let r = CGFloat.random(in: 0...maxR, using: &rng)
-        let a = CGFloat.random(in: 0..<2 * .pi, using: &rng)
-        activePowerUps.append(PowerUp(id: nextPowerUpID, kind: kind,
-                                      position: CGPoint(x: cos(a) * r, y: sin(a) * r)))
+        // Redraw (bounded, seeded — still deterministic) if the spot lands on a
+        // ball: a pickup spawned under a ball is consumed the same step and
+        // reads as a glitchy flicker instead of a collectable.
+        var position = CGPoint.zero
+        for _ in 0..<8 {
+            let r = CGFloat.random(in: 0...maxR, using: &rng)
+            let a = CGFloat.random(in: 0..<2 * .pi, using: &rng)
+            position = CGPoint(x: cos(a) * r, y: sin(a) * r)
+            if !isTouchingEitherBall(position) { break }
+        }
+        activePowerUps.append(PowerUp(id: nextPowerUpID, kind: kind, position: position))
         nextPowerUpID += 1
+    }
+
+    private func isTouchingEitherBall(_ point: CGPoint) -> Bool {
+        for ball in [homeBall, awayBall] {
+            let reach = ball.effectiveRadius + PhysicsConstants.powerUpRadius + 4
+            if (ball.position - point).length < reach { return true }
+        }
+        return false
     }
 
     private func collectPowerUps(_ ball: inout Disc) {

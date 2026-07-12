@@ -39,6 +39,10 @@ targets:
       - path: Info.plist
         buildPhase: none
     dependencies:
+      - package: GoogleMobileAds
+        product: GoogleMobileAds
+      - package: GoogleUserMessagingPlatform
+        product: GoogleUserMessagingPlatform
       # Weak-linked ONLY to silence the benign clean-build note
       # "No AppIntents.framework dependency found" that Xcode's metadata
       # processor emits for every app target without App Intents. First-party
@@ -74,3 +78,11 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.simversus.app.tests
         GENERATE_INFOPLIST_FILE: YES
+
+packages:
+  GoogleMobileAds:
+    url: https://github.com/googleads/swift-package-manager-google-mobile-ads.git
+    from: 13.0.0
+  GoogleUserMessagingPlatform:
+    url: https://github.com/googleads/swift-package-manager-google-user-messaging-platform.git
+    from: 3.1.0
